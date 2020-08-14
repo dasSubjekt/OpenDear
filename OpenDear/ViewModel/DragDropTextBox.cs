@@ -41,16 +41,19 @@
                 asFileNames = (string[])Arguments.Data.GetData(DataFormats.FileDrop);
                 if ((asFileNames != null) && (asFileNames.Length == 1))
                 {
-                    if (Directory.Exists(asFileNames[0]))
+                    if (File.Exists(asFileNames[0]))
                     {
-                        Return = DragDropEffects.Copy;
-                    }
-                    else if ((AllowedFileExtensions != null) && File.Exists(asFileNames[0]))
-                    {
-                        foreach (string sFileExtension in AllowedFileExtensions)
+                        if (AllowedFileExtensions == null)
                         {
-                            if ((asFileNames[0].Length > sFileExtension.Length) && (asFileNames[0].Substring(asFileNames[0].Length - sFileExtension.Length) == sFileExtension))
-                                Return = DragDropEffects.Copy;
+                            Return = DragDropEffects.Copy;
+                        }
+                        else
+                        {
+                            foreach (string sFileExtension in AllowedFileExtensions)
+                            {
+                                if ((asFileNames[0].Length > sFileExtension.Length) && (asFileNames[0].Substring(asFileNames[0].Length - sFileExtension.Length) == sFileExtension))
+                                    Return = DragDropEffects.Copy;
+                            }
                         }
                     }
                 }

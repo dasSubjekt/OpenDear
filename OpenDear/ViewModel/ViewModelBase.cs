@@ -25,7 +25,7 @@ namespace OpenDear.ViewModel
         private bool? _isDesignMode;
         private int _iErrorId;
         private string _sErrorMessage;
-        private readonly List<Property> _ltValidationErrors;
+        private List<Property> _ltValidationErrors;
         protected Dictionary<string, string> _dyTranslations;
 
         #region constructors
@@ -308,9 +308,9 @@ namespace OpenDear.ViewModel
         }
 
         /// <summary>Event handler for MainWindow's Window.Closing event.</summary>
-        static void WindowIsClosing(object oSender, CancelEventArgs EventArguments)
+        static void WindowIsClosing(object Sender, CancelEventArgs EventArguments)
         {
-            ICommand IsClosing = GetIsClosing(oSender as Window);
+            ICommand IsClosing = GetIsClosing(Sender as Window);
             if (IsClosing != null)
             {
                 if (IsClosing.CanExecute(null))
@@ -319,7 +319,7 @@ namespace OpenDear.ViewModel
                 }
                 else
                 {
-                    ICommand CancelClosing = GetCancelClosing(oSender as Window);
+                    ICommand CancelClosing = GetCancelClosing(Sender as Window);
                     if (CancelClosing != null)
                     {
                         CancelClosing.Execute(null);
@@ -330,9 +330,9 @@ namespace OpenDear.ViewModel
         }
 
         /// <summary>Event handler for MainWindow's Window.Closed event.</summary>
-        public static void WindowWasClosed(object oSender, EventArgs EventArguments)
+        public static void WindowWasClosed(object Sender, EventArgs EventArguments)
         {
-            ICommand WasClosed = GetWasClosed(oSender as Window);
+            ICommand WasClosed = GetWasClosed(Sender as Window);
             if (WasClosed != null)
                 WasClosed.Execute(null);
         }

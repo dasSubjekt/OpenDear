@@ -16,6 +16,15 @@
 
         public const int ciAesKeyBytesLength = 32;       // 32 * 8 bits per byte = 256-bit encryption
 
+        /// <summary>The size of a 128-bit key in bytes.</summary>
+        public const int ciKeySize128 = 128 >> 3;
+
+        /// <summary>The size of a 192-bit key in bytes.</summary>
+        public const int ciKeySize192 = 192 >> 3;
+
+        /// <summary>The size of a 256-bit key in bytes.</summary>
+        public const int ciKeySize256 = 256 >> 3;
+
         private const int ciKeyDerivationIterations = 100000;
         private const int ciPkcs1PaddingByteDifference = 11;
 
@@ -27,7 +36,11 @@
         private AesCng _AesServices;
         private RNGCryptoServiceProvider _Randomness;
         private RSACng _RsaServices;
-        private SHA256Cng _HashServices;
+        private MD5Cng _MD5Services;
+        private SHA1Cng _SHA1Services;
+        private SHA256Cng _SHA256Services;
+        private SHA384Cng _SHA384Services;
+        private SHA512Cng _SHA512Services;
         private Pkcs11InteropFactories _Pkcs11Factories;
         private IPkcs11Library _Pkcs11Library;
         private ILibraryInfo _Pkcs11LibraryInfo;
@@ -43,7 +56,11 @@
                 Padding = PaddingMode.PKCS7
             };
 
-            _HashServices = new SHA256Cng();
+            _MD5Services = new MD5Cng();
+            _SHA1Services = new SHA1Cng();
+            _SHA256Services = new SHA256Cng();
+            _SHA384Services = new SHA384Cng();
+            _SHA512Services = new SHA512Cng();
             _RsaServices = new RSACng();
             _Randomness = new RNGCryptoServiceProvider();
             _abInitialisationVector = new byte[ciIvOrSaltBytesLength];
@@ -133,6 +150,24 @@
             }
         }
 
+        public byte[] ComputeHash(byte[] abData, HashAlgorithmName HashAlgorithm)
+        {
+            byte[] abReturn = null;
+
+            if (HashAlgorithm == HashAlgorithmName.MD5)
+                abReturn = _MD5Services.ComputeHash(abData);
+            else if (HashAlgorithm == HashAlgorithmName.SHA1)
+                abReturn = _SHA1Services.ComputeHash(abData);
+            else if (HashAlgorithm == HashAlgorithmName.SHA256)
+                abReturn = _SHA256Services.ComputeHash(abData);
+            else if (HashAlgorithm == HashAlgorithmName.SHA384)
+                abReturn = _SHA384Services.ComputeHash(abData);
+            else if (HashAlgorithm == HashAlgorithmName.SHA512)
+                abReturn = _SHA512Services.ComputeHash(abData);
+
+            return abReturn;
+        }
+
         /// <summary></summary>
         public byte[] DecryptAes(byte[] abEncrypted, byte[] abKey)
         {
@@ -140,6 +175,8 @@
 
             if ((abEncrypted != null) && (abEncrypted.Length > ciIvOrSaltBytesLength) && (abKey != null))
             {
+                _AesServices.Padding = PaddingMode.PKCS7;
+
                 for (int i = 0; i < ciIvOrSaltBytesLength; i++)
                     _abInitialisationVector[i] = abEncrypted[i];
 
@@ -177,10 +214,30 @@
                 _AesServices.Clear();
                 _AesServices = null;
             }
-            if (_HashServices != null)
+            if (_MD5Services != null)
             {
-                _HashServices.Dispose();
-                _HashServices = null;
+                _MD5Services.Dispose();
+                _MD5Services = null;
+            }
+            if (_SHA1Services != null)
+            {
+                _SHA1Services.Dispose();
+                _SHA1Services = null;
+            }
+            if (_SHA256Services != null)
+            {
+                _SHA256Services.Dispose();
+                _SHA256Services = null;
+            }
+            if (_SHA384Services != null)
+            {
+                _SHA384Services.Dispose();
+                _SHA384Services = null;
+            }
+            if (_SHA512Services != null)
+            {
+                _SHA512Services.Dispose();
+                _SHA512Services = null;
             }
             if (_Pkcs11Library != null)
             {
@@ -200,15 +257,16 @@
         }
 
         /// <summary></summary>
-        public byte[] EncryptAes(byte[] abPlain, byte[] abKey)
+        public byte[] EncryptAes(byte[] abKey, byte[] abPlain)
         {
             byte[] abReturn = null;
 
-            if ((abPlain != null) && (abKey != null))
+            if ((abKey != null) && (abPlain != null))
             {
                 _Randomness.GetBytes(_abInitialisationVector);
-                _AesServices.Key = abKey;
+                _AesServices.Key = abKey;   // TODO SetKey
                 _AesServices.IV = _abInitialisationVector;
+                _AesServices.Padding = PaddingMode.PKCS7;
 
                 using (ICryptoTransform AesEncryptor = _AesServices.CreateEncryptor())
                 {
@@ -227,21 +285,66 @@
         }
 
         /// <summary></summary>
-        /// <param name=""></param>
-        public void GetRandomBytes(byte[] abBuffer)
+        public void EncryptAesBlock(byte[] abInputBlock, byte[] abOutputBlock)
         {
-            _Randomness.GetBytes(abBuffer);
+            byte[] abEncrypted = null;
+
+            if ((abInputBlock != null) && (abInputBlock.Length == ciIvOrSaltBytesLength) && (abOutputBlock != null) && (abOutputBlock.Length == ciIvOrSaltBytesLength) && (_AesServices.Key != null) && (_AesServices.IV != null) && (_AesServices.Padding == PaddingMode.Zeros))
+            {
+                using (ICryptoTransform AesEncryptor = _AesServices.CreateEncryptor())
+                {
+                    using (MemoryStream AesMemoryStream = new MemoryStream())
+                    {
+                        using (CryptoStream AesCryptoStream = new CryptoStream(AesMemoryStream, AesEncryptor, CryptoStreamMode.Write))
+                        {
+                            AesCryptoStream.Write(abInputBlock, 0, ciIvOrSaltBytesLength);
+                        }
+                        abEncrypted = AesMemoryStream.ToArray();
+                    }
+                }
+
+                if ((abEncrypted == null) || (abEncrypted.Length != ciIvOrSaltBytesLength))
+                {
+                    throw new CryptographicException("EncryptionServices.EncryptAesBlock()");
+                }
+                else
+                {
+                    for (int i = 0; i < ciIvOrSaltBytesLength; i++)
+                        abOutputBlock[i] = abEncrypted[i];
+                }
+            }
         }
 
         /// <summary></summary>
         /// <param name=""></param>
-        /// <param name=""></param>
-        public void GetRandomBytes(byte[] abBuffer, int iCount)
+        public void GetRandomBytes(byte[] abBuffer)
         {
-            if ((iCount < 0) || (iCount > abBuffer.Length))
-                throw new ArgumentException("iCount=" + iCount.ToString() + " is out of range in GetRandomBytes()");
-            else if (iCount > 0)
-                _Randomness.GetBytes(abBuffer, 0, iCount);
+            if (abBuffer == null)
+                throw new ArgumentNullException("abBuffer in EncryptionServices.GetRandomBytes().");
+            else
+                _Randomness.GetBytes(abBuffer);
+        }
+
+        /// <summary></summary>
+        public void InitialiseEncryptAesBlocks(byte[] abKey)
+        {
+            if ((abKey == null) || ((abKey.Length != ciKeySize128) && (abKey.Length != ciKeySize192) && (abKey.Length != ciKeySize256)))
+            {
+                throw new ArgumentException("Invalid abKey in EncryptionServices.InitialiseEncryptAesBlock().");
+            }
+            else
+            {
+                _AesServices.Key = abKey;   // TODO SetKey with ArgumentException
+
+                if (_AesServices.IV != null)
+                    GetRandomBytes(_AesServices.IV);
+
+                _AesServices.IV = new byte[ciIvOrSaltBytesLength];
+                for (int i = 0; i < ciIvOrSaltBytesLength; i++)
+                    _AesServices.IV[i] = 0;
+
+                _AesServices.Padding = PaddingMode.Zeros;
+            }
         }
 
         /// <summary></summary>
@@ -262,6 +365,39 @@
             return abReturn;
         }
 
+        /// <summary></summary>
+        public bool VerifyHash(byte[] abData, byte[] abHash, HashAlgorithmName HashAlgorithm)
+        {
+            bool isReturn = false;
+            byte[] abNewHash;
+
+            if ((abData != null) && (abHash != null))
+            {
+                abNewHash = ComputeHash(abData, HashAlgorithm);
+
+                if ((abNewHash != null) && (abNewHash.Length == abHash.Length))
+                {
+                    isReturn = true;
+
+                    for (int i = 0; i < abHash.Length; i++)
+                        isReturn = isReturn && (abNewHash[i] == abHash[i]);
+                }
+            }
+            return isReturn;
+        }
+
+        /// <summary></summary>
+        public bool VerifyRsa(byte[] abData, byte[] abSignature, HashAlgorithmName HashAlgorithm, PgpPublicKey SignatureKey)
+        {
+            bool isReturn = false;
+
+            if ((abData != null) && (abSignature != null) && (SignatureKey != null))
+            {
+                _RsaServices.ImportParameters(SignatureKey.KeyParameters);
+                isReturn = _RsaServices.VerifyData(abData, abSignature, HashAlgorithm, RSASignaturePadding.Pkcs1);
+            }
+            return isReturn;
+        }
         #endregion
     }
 }

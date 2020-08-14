@@ -4,18 +4,23 @@
         xmlns:vm="clr-namespace:OpenDear.ViewModel"
         vm:MainViewModel.IsClosing="{Binding rcIsClosing}"
         Title="{Binding sWindowTitle}" Height="900" Width="1200" FontSize="14" Icon="../Assets/Ozapftis.ico" >
-    <Window.DataContext><vm:MainViewModel/></Window.DataContext>
+    <Window.DataContext>
+        <vm:MainViewModel/>
+    </Window.DataContext>
     <Window.InputBindings>
         <KeyBinding Command="{Binding rcF5}" Key="F5"/>
     </Window.InputBindings>
     <Window.Resources>
         <Style TargetType="Button" >
             <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="0,0,0,1" />
+        </Style>
+        <Style TargetType="Label" >
+            <Setter Property="Margin" Value="0,0,12,0" />
         </Style>
         <Style TargetType="Label" x:Key="Tab" >
             <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="14.5"/>
-            <Setter Property="Foreground" Value="IndianRed"/>
+            <Setter Property="Foreground" Value="#A02020"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="Padding" Value="0,3,0,8" />
         </Style>
@@ -24,18 +29,24 @@
             <Setter Property="VerticalAlignment" Value="Top" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
+        <Style TargetType="TextBox" >
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="5,4,5,0" />
+            <Setter Property="VerticalContentAlignment" Value="Top" />
+        </Style>
+        <vm:ValueTranslator x:Key="ValueTranslator" />
     </Window.Resources>
     <Grid Margin="8">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
-            <RowDefinition Height="35" />
+            <RowDefinition Height="30" />
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <DockPanel Grid.Row="0" Grid.Column="0" LastChildFill="True" >
             <Button DockPanel.Dock="Right" Content="{Binding sClose}" Command="{Binding rcClose}" Margin="11,0,0,0" Width="100" />
-            <ProgressBar DockPanel.Dock="Right" IsIndeterminate="{Binding isProgressBarIndeterminate}" Value="{Binding iProgressBarValue}" Maximum="{Binding iProgressBarMaximum}" Foreground="IndianRed" Width="250" Height="24" Margin="20,0,0,0"/>
+            <ProgressBar DockPanel.Dock="Right" IsIndeterminate="{Binding isProgressBarIndeterminate}" Value="{Binding iProgressBarValue}" Maximum="{Binding iProgressBarMaximum}" Foreground="#A02020" Width="250" Height="24" Margin="20,0,0,0"/>
             <Label Content="{Binding sStatus}" Margin="15,3,0,0" />
         </DockPanel>
         <TabControl Grid.Row="1" Grid.Column="0" SelectedIndex="{Binding iMenuTab}" Padding="0" TabStripPlacement="Left" Margin="0,10,0,0">
@@ -55,7 +66,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    
+
                 </Grid>
             </TabItem>
             <TabItem Padding="12,12,12,8" Header="{Binding sUser}" >
@@ -87,11 +98,58 @@
                 </TabItem.HeaderTemplate>
                 <Grid Margin="15,5,5,5">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="700" />
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="30" />
+                        <RowDefinition Height="25" />
+                        <RowDefinition Height="30" />
+                        <RowDefinition Height="120" />
+                        <RowDefinition Height="25" />
+                        <RowDefinition Height="30" />
+                        <RowDefinition Height="120" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" LastChildFill="True" >
+                        <Label DockPanel.Dock="Left" Content="{Binding sKeyFileText}" />
+                        <Button DockPanel.Dock="Right" Content="{Binding sSelect}" Width="100" Command="{Binding rcSelectKey}" Margin="10,0,0,0" />
+                        <vm:DragDropTextBox Text="{Binding sImportKeyFilePath, UpdateSourceTrigger=PropertyChanged, NotifyOnValidationError=True}" Height="30" VerticalContentAlignment="Top" Padding="5,4,5,0" />
+                    </DockPanel>
+                    <Button Grid.Row="0" Grid.Column="2" Content="{Binding sImport}" Width="100" Command="{Binding rcImportKey}" Margin="10,0,0,0" />
+
+                    <Label Grid.Row="2" Grid.Column="0" Content="{Binding sKeysOrTokensText}" />
+                    
+                    <ListView Grid.Row="3" Grid.Column="0" ItemsSource="{Binding blTokens}" SelectedItem="{Binding SelectedToken}" SelectionMode="Single" Margin="0,0,10,0" >
+                        <ListView.View>
+                            <GridView AllowsColumnReorder="False" >
+                                <GridViewColumn DisplayMemberBinding="{Binding Path=eType, Converter={StaticResource ValueTranslator}}" Header="{Binding sTypeText}" Width="90" />
+                                <GridViewColumn DisplayMemberBinding="{Binding sName}" Header="{Binding sNameText}" Width="150" />
+                                <GridViewColumn DisplayMemberBinding="{Binding sEmail}" Header="{Binding sEmailText}" Width="280" />
+                                <GridViewColumn DisplayMemberBinding="{Binding sComment}" Header="{Binding sCommentText}" Width="150" />                                
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+
+                    <Label Grid.Row="5" Grid.Column="0" Content="{Binding sSubkeysText}" />
+
+                    <ListView Grid.Row="6" Grid.Column="0" ItemsSource="{Binding blSubkeys}" SelectedItem="{Binding SelectedSubkey}" SelectionMode="Single" Margin="0,0,10,0" >
+                        <ListView.View>
+                            <GridView AllowsColumnReorder="False" >
+                                <GridViewColumn Header="{Binding sBitsText}" >
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding sModulusBits}" TextAlignment="Right" Width="55" Padding="0,0,12,0" />
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn DisplayMemberBinding="{Binding Path=eTranslatedKeyFlags, Converter={StaticResource ValueTranslator}}" Header="{Binding sFunctionsText}" Width="250" />
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                    
                 </Grid>
             </TabItem>
             <TabItem Padding="12,12,12,8" Header="{Binding sData}" >

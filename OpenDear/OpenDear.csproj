@@ -16,6 +16,7 @@
     <Deterministic>true</Deterministic>
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
     <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
@@ -27,8 +28,7 @@
     <UpdateRequired>false</UpdateRequired>
     <MapFileExtensions>true</MapFileExtensions>
     <ApplicationRevision>0</ApplicationRevision>
-    <ApplicationVersion>0.9.9.%2a</ApplicationVersion>
-    <IsWebBootstrapper>false</IsWebBootstrapper>
+    <ApplicationVersion>0.9.1.%2a</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
   </PropertyGroup>
@@ -78,14 +78,15 @@
     <ApplicationIcon>Assets\Ozapftis.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Pkcs11Interop, Version=5.1.0.0, Culture=neutral, PublicKeyToken=c10e9c2d8c006d2a, processorArchitecture=MSIL">
-      <HintPath>..\packages\Pkcs11Interop.5.1.0\lib\net45\Pkcs11Interop.dll</HintPath>
+    <Reference Include="Pkcs11Interop, Version=5.1.1.0, Culture=neutral, PublicKeyToken=c10e9c2d8c006d2a, processorArchitecture=MSIL">
+      <HintPath>..\packages\Pkcs11Interop.5.1.1\lib\net45\Pkcs11Interop.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Data" />
     <Reference Include="System.Data.SQLite, Version=1.0.113.0, Culture=neutral, PublicKeyToken=db937bc2d44ff139, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Data.SQLite.Core.1.0.113.1\lib\net46\System.Data.SQLite.dll</HintPath>
     </Reference>
+    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Core" />
@@ -107,6 +108,30 @@
     <Compile Include="Crypto\Crc24.cs" />
     <Compile Include="Crypto\EncryptedDatabase.cs" />
     <Compile Include="Crypto\EncryptionServices.cs" />
+    <Compile Include="Crypto\PgpAesWithCfb.cs" />
+    <Compile Include="Crypto\PgpArmor.cs" />
+    <Compile Include="Crypto\PgpCreationTime.cs" />
+    <Compile Include="Crypto\PgpFeatures.cs" />
+    <Compile Include="Crypto\PgpFile.cs" />
+    <Compile Include="Crypto\PgpFingerprint.cs" />
+    <Compile Include="Crypto\PgpIssuerKeyId.cs" />
+    <Compile Include="Crypto\PgpKeyExpireTime.cs" />
+    <Compile Include="Crypto\PgpKeyFlags.cs" />
+    <Compile Include="Crypto\PgpKeyServerPreferences.cs" />
+    <Compile Include="Crypto\PgpPacket.cs" />
+    <Compile Include="Crypto\PgpPacketBase.cs" />
+    <Compile Include="Crypto\PgpPreferredCompressionAlgorithms.cs" />
+    <Compile Include="Crypto\PgpPreferredHashAlgorithms.cs" />
+    <Compile Include="Crypto\PgpPreferredSymmetricAlgorithms.cs" />
+    <Compile Include="Crypto\PgpPrivateKey.cs" />
+    <Compile Include="Crypto\PgpPublicKey.cs" />
+    <Compile Include="Crypto\PgpPublicKeyEncryptedKey.cs" />
+    <Compile Include="Crypto\PgpPublicKeyUtility.cs" />
+    <Compile Include="Crypto\PgpRevocationReason.cs" />
+    <Compile Include="Crypto\PgpSignature.cs" />
+    <Compile Include="Crypto\PgpSignatureSubpacket.cs" />
+    <Compile Include="Crypto\PgpToken.cs" />
+    <Compile Include="Crypto\PgpUserId.cs" />
     <Compile Include="Model\BackgroundMessage.cs" />
     <Compile Include="Model\BackgroundThread.cs" />
     <Compile Include="Model\BytesAndTextUtility.cs" />
@@ -120,6 +145,7 @@
     <Compile Include="ViewModel\MainViewModel_methods.cs" />
     <Compile Include="ViewModel\MainViewModel_properties.cs" />
     <Compile Include="ViewModel\RelayCommand.cs" />
+    <Compile Include="ViewModel\ValueTranslator.cs" />
     <Compile Include="ViewModel\ViewModelBase.cs" />
     <Compile Include="View\MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
@@ -151,6 +177,7 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+    <None Include="OpenDear-Anleitung.pdf" />
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
