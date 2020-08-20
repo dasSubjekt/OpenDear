@@ -18,10 +18,10 @@
         /// <summary>Initialises a new instance of the MainViewModel class.</summary>
         public MainViewModel() : base()
         {
-            _isDatabaseWithPassword = _isProgressBarIndeterminate = false;
+            _isDatabaseWithPassword = _isDragOverData = _isDragOverKeys = _isProgressBarIndeterminate = false;
             _iErrorId = _iPassword1Length = _iPassword2Length = _iProgressBarValue = _iUserPinLength = 0;
             _iProgressBarMaximum = ciProgrssBarDefaultMaximum;
-            _sBackgroundStatus = _sDatabaseDirectory = _sErrorMessage = _sImportKeyFilePath = _sNewDatabaseName = string.Empty;
+            _sBackgroundStatus = _sDatabaseDirectory = _sErrorMessage = _sInputKeyFilePath = _sInputMessageFilePath = _sNewDatabaseName = string.Empty;
             _abEncryptedPassword1 = _abEncryptedPassword2 = _abEncryptedUserPin = null;
             _eMenuTab = nMenuTab.Keys;
             _Database = null;
@@ -31,8 +31,10 @@
             rcF5 = new RelayCommand(ExecuteF5, CanExecuteF5);
             rcIsClosing = new RelayCommand(ExecuteIsClosing, CanExecuteIsClosing);
             rcLogin = new RelayCommand(ExecuteLogin, CanExecuteLogin);
+            rcReadMessage = new RelayCommand(ExecuteReadMessage, CanExecuteReadMessage);
+            rcReadKeyFile = new RelayCommand(ExecuteReadKeyFile, CanExecuteReadKeyFile);
             rcRefreshTokens = new RelayCommand(ExecuteRefreshTokens);
-            rcImportKey = new RelayCommand(ExecuteImportKey, CanExecuteImportKey);
+            rcSelectInputMessage = new RelayCommand(ExecuteSelectInputMessage);
             rcSelectKey = new RelayCommand(ExecuteSelectKey);
             rcUnlockKey = new RelayCommand(ExecuteUnlockKey, CanExecuteUnlockKey);
 
@@ -82,9 +84,15 @@
         }
 
         /// <summary></summary>
-        private bool CanExecuteImportKey()
+        private bool CanExecuteReadMessage()
         {
-            return isExecuteImportKey;
+            return isExecuteReadMessage;
+        }
+
+        /// <summary></summary>
+        private bool CanExecuteReadKeyFile()
+        {
+            return isExecuteReadKeyFile;
         }
 
         /// <summary></summary>
@@ -193,31 +201,72 @@
         {
         }
 
-        /// <summary>Delegate method invoked by rcRefreshTokens.</summary>
-        protected void ExecuteRefreshTokens()
+        /// <summary>Delegate method invoked by rcReadMessage.</summary>
+        protected void ExecuteReadMessage()
         {
+            byte[] abMessageBytes;
+            string sErrorMessage;
+            PgpFile MessageFile;
 
+            if (isExecuteReadMessage)
+            {
+                MessageFile = new PgpFile();
+                abMessageBytes = MessageFile.GetBytes(_sInputMessageFilePath);
+
+                switch (MessageFile.eStatus)
+                {
+                    case PgpArmor.nStatus.CrcError: sErrorMessage = string.Format(sFileCrcError, _sInputKeyFilePath); break;
+                    case PgpArmor.nStatus.ParseError: sErrorMessage = string.Format(sFileParseError, _sInputKeyFilePath); break;
+                    case PgpArmor.nStatus.Undefined: sErrorMessage = string.Format(sFileError, _sInputKeyFilePath); break;
+                    default: sErrorMessage = string.Empty; break;
+                }
+
+                if (string.IsNullOrEmpty(sErrorMessage))
+                {
+                    Console.Write("abMessageBytes = ");
+
+                    for (int i = 0; i < abMessageBytes.Length; i++)
+                        Console.Write(abMessageBytes[i].ToString("x2") + " ");
+
+                    Console.WriteLine();
+                }
+                else
+                {
+                    _blMessages.Add(new Property(DateTime.Now, sErrorMessage));
+                    eMenuTab = nMenuTab.Progress;
+                }
+            }
         }
 
-        /// <summary>Delegate method invoked by rcImportKey.</summary>
-        private void ExecuteImportKey()
+        /// <summary>Delegate method invoked by rcReadKeyFile.</summary>
+        private void ExecuteReadKeyFile()
         {
-            byte[] abKeyBytes;
+            byte[] abKeyBytes = null;
+            long kFileSize;
             string sErrorMessage;
             PgpFile KeyFile;
             PgpToken NewToken = null;
 
-            if (isExecuteImportKey)
+            if (isExecuteReadKeyFile)
             {
                 KeyFile = new PgpFile();
-                abKeyBytes = KeyFile.GetBytes(_sImportKeyFilePath);
+                kFileSize = KeyFile.GetFileSize(_sInputKeyFilePath);
 
-                switch (KeyFile.eStatus)
+                if (kFileSize > PgpFile.ckMaxKeyFileSize)
                 {
-                    case PgpArmor.nStatus.CrcError: sErrorMessage = string.Format(sFileCrcError, _sImportKeyFilePath); break;
-                    case PgpArmor.nStatus.ParseError: sErrorMessage = string.Format(sFileParseError, _sImportKeyFilePath); break;
-                    case PgpArmor.nStatus.Undefined: sErrorMessage = string.Format(sFileError, _sImportKeyFilePath); break;
-                    default: sErrorMessage = string.Empty; break;
+                    sErrorMessage = string.Format(sKeyFileTooLarge, _sInputKeyFilePath);
+                }
+                else
+                {
+                    abKeyBytes = KeyFile.GetBytes(_sInputKeyFilePath);
+
+                    switch (KeyFile.eStatus)
+                    {
+                        case PgpArmor.nStatus.CrcError: sErrorMessage = string.Format(sFileCrcError, _sInputKeyFilePath); break;
+                        case PgpArmor.nStatus.ParseError: sErrorMessage = string.Format(sFileParseError, _sInputKeyFilePath); break;
+                        case PgpArmor.nStatus.Undefined: sErrorMessage = string.Format(sFileError, _sInputKeyFilePath); break;
+                        default: sErrorMessage = string.Empty; break;
+                    }
                 }
 
                 if (string.IsNullOrEmpty(sErrorMessage))
@@ -226,9 +275,9 @@
 
                     switch (NewToken.eStatus)
                     {
-                        case PgpToken.nStatus.ParseErrorRaw: sErrorMessage = string.Format(sFileParseError, _sImportKeyFilePath); break;
-                        case PgpToken.nStatus.ParseErrorSub: sErrorMessage = string.Format(sFileParseErrorSub, _sImportKeyFilePath); break;
-                        case PgpToken.nStatus.Undefined: sErrorMessage = string.Format(sFileError, _sImportKeyFilePath); break;
+                        case PgpToken.nStatus.ParseErrorRaw: sErrorMessage = string.Format(sFileParseError, _sInputKeyFilePath); break;
+                        case PgpToken.nStatus.ParseErrorSub: sErrorMessage = string.Format(sFileParseErrorSub, _sInputKeyFilePath); break;
+                        case PgpToken.nStatus.Undefined: sErrorMessage = string.Format(sFileError, _sInputKeyFilePath); break;
                         default: sErrorMessage = string.Empty; break;
                     }
                 }
@@ -240,11 +289,13 @@
                         if (_ltTokens.Contains(NewToken))
                         {
                             _blMessages.Add(new Property(DateTime.Now, sDuplicateTokenError));
+                            eMenuTab = nMenuTab.Progress;
                         }
                         else
                         {
                             _ltTokens.Add(NewToken);
                             RequeryDisplayedTokens();
+                            sInputKeyFilePath = string.Empty;
                         }
                     }
                 }
@@ -256,10 +307,22 @@
             }
         }
 
+        /// <summary>Delegate method invoked by rcRefreshTokens.</summary>
+        protected void ExecuteRefreshTokens()
+        {
+
+        }
+
+        /// <summary>Delegate method invoked by rcSelectInputMessage.</summary>
+        private void ExecuteSelectInputMessage()
+        {
+            sInputMessageFilePath = OpenFileDialog(ref _sInputMessageFilePath, sSelectInputMessage);
+        }
+
         /// <summary>Delegate method invoked by rcSelectKey.</summary>
         private void ExecuteSelectKey()
         {
-            OpenFileDialog();
+            sInputKeyFilePath = OpenFileDialog(ref _sInputKeyFilePath, sSelectKeyFile);
         }
 
         /// <summary>Delegate method invoked by rcUnlockKey.</summary>
@@ -268,19 +331,21 @@
         }
 
         /// <summary></summary>
-        private void OpenFileDialog()
+        private string OpenFileDialog(ref string sFilePath, string sDialogTitle)
         {
-            string sInitialDirectory = string.Empty;
+            string sInitialDirectory, sReturn = sFilePath;
 
-            if (!string.IsNullOrEmpty(_sImportKeyFilePath))
-                sInitialDirectory = Path.GetFullPath(_sImportKeyFilePath);
+            if (string.IsNullOrEmpty(sFilePath))
+                sInitialDirectory = string.Empty;
+            else
+                sInitialDirectory = Path.GetFullPath(sFilePath);
 
             if (string.IsNullOrEmpty(sInitialDirectory))
                 sInitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
             using (System.Windows.Forms.OpenFileDialog FileDialog = new System.Windows.Forms.OpenFileDialog
             {
-                Title = sSelectKeyFile,
+                Title = sDialogTitle,
                 InitialDirectory = sInitialDirectory,
                 // DefaultExt = sDefaultExtension,
                 FilterIndex = 1,
@@ -290,10 +355,9 @@
             })
             {
                 if (FileDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-                {
-                    sImportKeyFilePath = FileDialog.FileName;
-                }
+                    sReturn = FileDialog.FileName;
             }
+            return sReturn;
         }
 
         private void RaisePropertyChangedDbWithPassword()
@@ -343,15 +407,19 @@
             {
 #if ENGLISH
                 { "AllFiles", "All files" },
+                { "Authenticate", "authenticate" },
                 { "BitsText", "Bits" },
                 { "Cancel", "Cancel" },
+                { "Certify", "certify" },
                 { "Close", "Close" },
                 { "CommentText", "Comment" },
                 { "Create", "Create" },
                 { "Data", "Data" },
                 { "DatabaseNameExists", "A database with this name already exists." },
                 { "DatabaseNameText", "Database name" },
+                { "Decrypt", "decrypt" },
                 { "DuplicateTokenError", "Key or token already exists." },
+                { "Encrypt", "encrypt" },
                 { "EmailText", "eMail" },
                 { "EncryptedDatabase", "EncryptedDatabase" },
                 { "EnterPassword1", "Enter password" },
@@ -361,50 +429,63 @@
                 { "FileError", "Error reading file »{0:s}«." },
                 { "FileParseError", "Error interpreting file »{0:s}«." },
                 { "FileParseErrorSub", "Error interpreting a packet in file »{0:s}«." },
-                { "FunctionsText", "Functions" },
-                { "Import", "Import" },
+                { "FunctionsText", "Function(s)" },
+                { "InputFileDoesNotExist", "This input file does not exist." },
+                { "InputFileText", "Input file" },
                 { "KeyFileText", "Key file" },
                 { "KeyFileDoesNotExist", "This key file does not exist." },
-                { "KeysOrTokensText", "Key or Token" },
+                { "KeyFileTooLarge", "The file »{0:s}« is too large for a key file." },
+                { "KeysOrTokensText", "Keys or tokens" },
                 { "Keys", "Keys" },
                 { "Login", "Login" },
                 { "MessageText", "message" },
                 { "NameText", "Name" },
                 { "NewDatabase", "New database" },
+                { "None", "none" },
                 { "OpenScFound", "The OpenSC library »{0:s}« was found." },
                 { "OpenScInformation", "OpenSC library information: »{0:s}« version {1:s} of »{2:s}« with Cryptoki version {3:s}." },
                 { "OpenScNotFound", "The OpenSC library was not found." },
                 { "PasswordsDifferent", "The passwords are not identical." },
                 { "Pin", "Pin" },
-                { "Private", "Private" },
-                { "ProgramVersion", "Program version " + sProgramVersion + " of 14/08/2020 is ready." },
+                { "Private", "private" },
+                { "ProgramVersion", "Program version " + sProgramVersion + " of 20/08/2020 is ready." },
                 { "Progress", "Progress" },
-                { "Public", "Public" },
+                { "Public", "public" },
+                { "Read", "Read" },
                 { "RefreshTokens", "Refresh tokens" },
                 { "Select", "Select" },
+                { "sSelectInputMessage", "Select input message" },
                 { "SelectKeyFile", "Select key file" },
                 { "Setup", "Setup" },
+                { "Sign", "sign" },
                 { "SubkeysText", "Subkeys" },
                 { "Symmetric", "Symmetric" },
                 { "TimeText", "time" },
                 { "TypeText", "Type" },
                 { "User", "User" },
+                { "VerifyAuthenticity", "verify authenticity" },
+                { "VerifyCertificates", "verify certificates" },
+                { "VerifySignatures", "verify signatures" },
                 { "WindowTitle", "OpenDear - Double Encryption And Re-encryption" },
                 { "WithPassword", "with password" },
                 { "WithToken", "with token" },
                 { "Yes", "yes" }
 #elif DEUTSCH
                 { "AllFiles", "Alle Dateien" },
+                { "Authenticate", "sich authentisieren" },
                 { "BitsText", "Bit" },
                 { "Cancel", "Abbrechen" },
+                { "Certify", "zertifizieren" },
                 { "Close", "Schließen" },
                 { "CommentText", "Kommentar" },
                 { "Create", "Anlegen" },
                 { "Data", "Daten" },
                 { "DatabaseNameExists", "Eine Datenbank mit diesem Namen existiert bereits." },
                 { "DatabaseNameText", "Datenbankname" },
+                { "Decrypt", "entschlüsseln" },
                 { "DuplicateTokenError", "Schlüssel oder Token existiert bereits." },
                 { "EmailText", "E-Mail" },
+                { "Encrypt", "verschlüsseln" },
                 { "EncryptedDatabase", "Datenbank" },
                 { "EnterPassword1", "Passwort eingeben" },
                 { "EnterPassword2", "Passwort wiederholen" },
@@ -413,9 +494,11 @@
                 { "FileError", "Fehler beim Lesen der Datei »{0:s}«." },
                 { "FileParseError", "Fehler beim Interpretieren der Datei »{0:s}«." },
                 { "FileParseErrorSub", "Fehler beim Interpretieren eines Pakets in Datei »{0:s}«." },
-                { "FunctionsText", "Funktionen" },
-                { "Import", "Einlesen" },
+                { "FunctionsText", "Funktion(en)" },
+                { "InputFileDoesNotExist", "Diese Eingabedatei existiert nicht." },
+                { "InputFileText", "Eingabedatei" },
                 { "KeyFileText", "Schlüsseldatei" },
+                { "KeyFileTooLarge", "Die Datei »{0:s}« ist zu groß für eine Schlüsseldatei." },
                 { "KeyFileDoesNotExist", "Diese Schlüsseldatei existiert nicht." },
                 { "KeysOrTokensText", "Schlüssel oder Token" },
                 { "Keys", "Schlüssel" },
@@ -423,24 +506,31 @@
                 { "MessageText", "Nachricht" },
                 { "NameText", "Name" },
                 { "NewDatabase", "Neue Datenbank" },
+                { "None", "keine" },
                 { "OpenScFound", "Die OpenSC-Bibliothek »{0:s}« wurde gefunden." },
                 { "OpenScInformation", "OpenSC-Bibliotheksinformation: »{0:s}« Version {1:s} von »{2:s}« mit Cryptoki-Version {3:s}." },
                 { "OpenScNotFound", "Die OpenSC-Bibliothek wurde nicht gefunden." },
                 { "PasswordsDifferent", "Die Passwörter sind nicht identisch." },
                 { "Pin", "Pin" },
-                { "Private", "Privat" },
-                { "ProgramVersion", "Die Programmversion " + sProgramVersion + " vom 14.08.2020 ist bereit." },
+                { "Private", "privat" },
+                { "ProgramVersion", "Die Programmversion " + sProgramVersion + " vom 20.08.2020 ist bereit." },
                 { "Progress", "Verlauf" },
-                { "Public", "Öffentlich" },
+                { "Read", "Einlesen" },
+                { "Public", "öffentlich" },
                 { "RefreshTokens", "Token neu lesen" },
                 { "Select", "Auswählen" },
+                { "sSelectInputMessage", "Eingabenachricht auswählen" },
                 { "SelectKeyFile", "Schlüsseldatei auswählen" },
                 { "Setup", "Einrichtung" },
+                { "Sign", "signieren" },
                 { "SubkeysText", "Unterschlüssel" },
                 { "Symmetric", "Symmetrisch" },
                 { "TimeText", "Zeit" },
                 { "TypeText", "Typ" },
                 { "User", "Benutzer" },
+                { "VerifyAuthenticity", "Authentizität prüfen" },
+                { "VerifyCertificates", "Zertifikate prüfen" },
+                { "VerifySignatures", "Signaturen prüfen" },
                 { "WindowTitle", "OpenDear - Doppeltes Verschlüsseln und Umschlüsseln" },
                 { "WithPassword", "mit Passwort" },
                 { "WithToken", "mit Token" },

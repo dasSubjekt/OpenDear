@@ -5,19 +5,19 @@
     using Net.Pkcs11Interop.HighLevelAPI;
 
 
-    public class PgpToken : IEquatable<PgpToken>   // TODO compare PgpToken based on PgpSignature based on PgpPublicKey
+    public class PgpToken : IEquatable<PgpToken>
     {
         public enum nStatus { OK, ParseErrorRaw, ParseErrorSub, Undefined };
         public enum nType { Private, Public, Symmetric, Undefined };
 
-        private nStatus _eStatus;
-        private nType _eType;
+        private readonly nStatus _eStatus;
+        private readonly nType _eType;
         private string _sSlotName;
-        private ITokenInfo _TokenInfo;
+        private readonly ITokenInfo _TokenInfo;
         private PgpUserId _UserIdPacket;
-        private EncryptionServices _Cryptography;
+        private readonly EncryptionServices _Cryptography;
         private PgpPacket _KeyPacket;
-        private List<PgpSignature> _ltSubkeys;
+        private readonly List<PgpSignature> _ltSubkeys;
 
 
         #region constructors
@@ -79,7 +79,7 @@
                 else
                 {
                     foreach (PgpSignature Subkey in _ltSubkeys)
-                        isPublicKey = isPublicKey && (Subkey.PrivateKeyPacket == null);
+                        isPublicKey = isPublicKey && (Subkey.PrivateKeyPacket == null);   // one private key packet flags the whole token as private
 
                     _eType = isPublicKey ? nType.Public : nType.Private;
                 }
@@ -221,7 +221,23 @@
         /// <param name=""></param>
         public bool Equals(PgpToken Other)
         {
-            return (Other != null) && (sManufacturer == Other.sManufacturer) && (sSerialNumber == Other.sSerialNumber);
+            bool isSameHardwareToken, isSamePgpKeyRing;
+
+            isSameHardwareToken = isSamePgpKeyRing = false;
+
+            if (Other != null)
+            {
+                isSameHardwareToken = !string.IsNullOrEmpty(sManufacturer) && !string.IsNullOrEmpty(sSerialNumber) && (sManufacturer == Other.sManufacturer) && (sSerialNumber == Other.sSerialNumber);
+                isSamePgpKeyRing = (_eType == Other.eType) && (_ltSubkeys != null) && (Other.ltSubkeys != null) && (_ltSubkeys.Count == Other.ltSubkeys.Count);
+
+                if (isSamePgpKeyRing)
+                {
+                    for (int i = 0; i < _ltSubkeys.Count; i++)
+                        isSamePgpKeyRing = isSamePgpKeyRing && _ltSubkeys[i].Equals(Other.ltSubkeys[i]);
+                }
+            }
+
+            return isSameHardwareToken || isSamePgpKeyRing;
         }
 
         /// <summary></summary>
@@ -229,20 +245,25 @@
         public override bool Equals(object Other)
         {
             if (Other == null)
+            {
                 return false;
+            }
             else
             {
-                if (!(Other is PgpToken OtherToken))
-                    return false;
-                else
+                if (Other is PgpToken OtherToken)
                     return Equals(OtherToken);
+                else
+                    return false;
             }
         }
 
         /// <summary></summary>
         public override int GetHashCode()
         {
-            return sSerialNumber.GetHashCode();
+            if ((_ltSubkeys != null) && (_ltSubkeys.Count > 0))
+                return _ltSubkeys[0].GetHashCode();
+            else
+                return (sName + sEmail + sManufacturer + sSerialNumber).GetHashCode();
         }
 
         private PgpPacket ParsePrivateKeyPacket(PgpPacket RawPgpPacket)

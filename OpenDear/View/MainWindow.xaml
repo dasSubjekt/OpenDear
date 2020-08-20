@@ -15,6 +15,9 @@
             <Setter Property="Height" Value="30" />
             <Setter Property="Padding" Value="0,0,0,1" />
         </Style>
+        <Style TargetType="Grid" >
+            <Setter Property="Margin" Value="15" />
+        </Style>
         <Style TargetType="Label" >
             <Setter Property="Margin" Value="0,0,12,0" />
         </Style>
@@ -59,7 +62,7 @@
                         </StackPanel>
                     </DataTemplate>
                 </TabItem.HeaderTemplate>
-                <Grid Margin="20,5,5,5">
+                <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
@@ -78,7 +81,7 @@
                         </StackPanel>
                     </DataTemplate>
                 </TabItem.HeaderTemplate>
-                <Grid Margin="15,5,5,5">
+                <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
@@ -87,7 +90,7 @@
                     </Grid.RowDefinitions>
                 </Grid>
             </TabItem>
-            <TabItem Padding="12,12,12,8" Header="{Binding sKeys}" >
+            <vm:DragDropTabItem Padding="12,12,12,8" Header="{Binding sKeys}" IsDragOver="{Binding isDragOverKeys, Mode=TwoWay}" >
                 <TabItem.HeaderTemplate>
                     <DataTemplate>
                         <StackPanel Orientation="Vertical" >
@@ -96,9 +99,9 @@
                         </StackPanel>
                     </DataTemplate>
                 </TabItem.HeaderTemplate>
-                <Grid Margin="15,5,5,5">
+                <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="700" />
+                        <ColumnDefinition Width="690" />
                         <ColumnDefinition />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
@@ -116,19 +119,18 @@
                     <DockPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" LastChildFill="True" >
                         <Label DockPanel.Dock="Left" Content="{Binding sKeyFileText}" />
                         <Button DockPanel.Dock="Right" Content="{Binding sSelect}" Width="100" Command="{Binding rcSelectKey}" Margin="10,0,0,0" />
-                        <vm:DragDropTextBox Text="{Binding sImportKeyFilePath, UpdateSourceTrigger=PropertyChanged, NotifyOnValidationError=True}" Height="30" VerticalContentAlignment="Top" Padding="5,4,5,0" />
+                        <vm:DragDropTextBox Text="{Binding sInputKeyFilePath, UpdateSourceTrigger=PropertyChanged, NotifyOnValidationError=True}" Height="30" VerticalContentAlignment="Top" Padding="5,4,5,0" />
                     </DockPanel>
-                    <Button Grid.Row="0" Grid.Column="2" Content="{Binding sImport}" Width="100" Command="{Binding rcImportKey}" Margin="10,0,0,0" />
+                    <Button Grid.Row="0" Grid.Column="2" Content="{Binding sRead}" Width="100" Command="{Binding rcReadKeyFile}" Margin="10,0,0,0" />
 
                     <Label Grid.Row="2" Grid.Column="0" Content="{Binding sKeysOrTokensText}" />
                     
                     <ListView Grid.Row="3" Grid.Column="0" ItemsSource="{Binding blTokens}" SelectedItem="{Binding SelectedToken}" SelectionMode="Single" Margin="0,0,10,0" >
                         <ListView.View>
                             <GridView AllowsColumnReorder="False" >
-                                <GridViewColumn DisplayMemberBinding="{Binding Path=eType, Converter={StaticResource ValueTranslator}}" Header="{Binding sTypeText}" Width="90" />
-                                <GridViewColumn DisplayMemberBinding="{Binding sName}" Header="{Binding sNameText}" Width="150" />
+                                <GridViewColumn DisplayMemberBinding="{Binding Path=eType, Converter={StaticResource ValueTranslator}}" Header="{Binding sTypeText}" Width="80" />
+                                <GridViewColumn DisplayMemberBinding="{Binding sName}" Header="{Binding sNameText}" Width="280" />
                                 <GridViewColumn DisplayMemberBinding="{Binding sEmail}" Header="{Binding sEmailText}" Width="280" />
-                                <GridViewColumn DisplayMemberBinding="{Binding sComment}" Header="{Binding sCommentText}" Width="150" />                                
                             </GridView>
                         </ListView.View>
                     </ListView>
@@ -138,21 +140,21 @@
                     <ListView Grid.Row="6" Grid.Column="0" ItemsSource="{Binding blSubkeys}" SelectedItem="{Binding SelectedSubkey}" SelectionMode="Single" Margin="0,0,10,0" >
                         <ListView.View>
                             <GridView AllowsColumnReorder="False" >
-                                <GridViewColumn Header="{Binding sBitsText}" >
+                                <GridViewColumn Header="{Binding sBitsText}" Width="65" >
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding sModulusBits}" TextAlignment="Right" Width="55" Padding="0,0,12,0" />
+                                            <TextBlock Text="{Binding sModulusBits}" TextAlignment="Right" Width="55" Padding="0,0,8,0" />
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn DisplayMemberBinding="{Binding Path=eTranslatedKeyFlags, Converter={StaticResource ValueTranslator}}" Header="{Binding sFunctionsText}" Width="250" />
+                                <GridViewColumn DisplayMemberBinding="{Binding Path=eTranslatedKeyFlags, Converter={StaticResource ValueTranslator}}" Header="{Binding sFunctionsText}" Width="575" />
                             </GridView>
                         </ListView.View>
                     </ListView>
                     
                 </Grid>
-            </TabItem>
-            <TabItem Padding="12,12,12,8" Header="{Binding sData}" >
+            </vm:DragDropTabItem>
+            <vm:DragDropTabItem Padding="12,12,12,8" Header="{Binding sData}" IsDragOver="{Binding isDragOverData, Mode=TwoWay}" >
                 <TabItem.HeaderTemplate>
                     <DataTemplate>
                         <StackPanel Orientation="Vertical" >
@@ -161,15 +163,27 @@
                         </StackPanel>
                     </DataTemplate>
                 </TabItem.HeaderTemplate>
-                <Grid Margin="15,5,5,5">
+                <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="690" />
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="30" />
+                        <RowDefinition Height="25" />
+                        <RowDefinition Height="30" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" LastChildFill="True" >
+                        <Label DockPanel.Dock="Left" Content="{Binding sInputFileText}" />
+                        <Button DockPanel.Dock="Right" Content="{Binding sSelect}" Width="100" Command="{Binding rcSelectInputMessage}" Margin="10,0,0,0" />
+                        <vm:DragDropTextBox Text="{Binding sInputMessageFilePath, UpdateSourceTrigger=PropertyChanged, NotifyOnValidationError=True}" Height="30" VerticalContentAlignment="Top" Padding="5,4,5,0" />
+                    </DockPanel>
+                    <Button Grid.Row="0" Grid.Column="2" Content="{Binding sRead}" Width="100" Command="{Binding rcReadMessage}" Margin="10,0,0,0" />
                 </Grid>
-            </TabItem>
+            </vm:DragDropTabItem>
             <TabItem Padding="12,12,12,8" Header="{Binding sProgress}" >
                 <TabItem.HeaderTemplate>
                     <DataTemplate>
@@ -179,7 +193,7 @@
                         </StackPanel>
                     </DataTemplate>
                 </TabItem.HeaderTemplate>
-                <Grid Margin="5">
+                <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>

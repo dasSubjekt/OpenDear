@@ -7,20 +7,20 @@
 
 
     /// <summary>Implements RFC 4880 section 5.2. Signature Packet.</summary>
-    public class PgpSignature : PgpPacket
+    public class PgpSignature : PgpPacket, IEquatable<PgpSignature>
     {
         [Flags]
         public enum nTranslatedKeyFlags
         {
             None = 0x00,
             Certify = 0x01,
-            VerifyCertification = 0x02,
+            VerifyCertificates = 0x02,
             Sign = 0x04,
-            VerifySignature = 0x08,
-            Encrypt = 0x10,
-            Decrypt = 0x20,
+            VerifySignatures = 0x08,
+            Decrypt = 0x10,
+            Encrypt = 0x20,
             Authenticate = 0x40,
-            VerifyAuthentication = 0x80,
+            VerifyAuthenticity = 0x80,
         }
 
         /// <summary>Only version 4 Signature Packets are implemented, see RFC 4880 section 5.2.3. Version 4 Signature Packet Format.</summary>
@@ -150,6 +150,12 @@
         }
 
         /// <summary></summary>
+        public byte[] abSignature
+        {
+            get { return _abSignature; }
+        }
+
+        /// <summary></summary>
         public nSignatureType eSignatureType
         {
             get { return _eSignatureType; }
@@ -163,6 +169,48 @@
         #endregion
 
         #region methods
+
+        /// <summary></summary>
+        /// <param name=""></param>
+        public bool Equals(PgpSignature Other)
+        {
+            bool isReturn;
+
+            if ((_abSignature != null) && (Other != null) && (Other.abSignature != null) && (_abSignature.Length == Other.abSignature.Length))
+            {
+                isReturn = true;
+
+                for (int i = 0; i < _abSignature.Length; i++)
+                    isReturn = isReturn && (_abSignature[i] == Other.abSignature[i]);
+            }
+            else
+                isReturn = false;
+
+            return isReturn;
+        }
+
+        /// <summary></summary>
+        /// <param name=""></param>
+        public override bool Equals(object Other)
+        {
+            if (Other == null)
+            {
+                return false;
+            }
+            else
+            {
+                if (Other is PgpSignature OtherSignature)
+                    return Equals(OtherSignature);
+                else
+                    return false;
+            }
+        }
+
+        /// <summary></summary>
+        public override int GetHashCode()
+        {
+            return 0;
+        }
 
         private void Initialise(nSignatureType eSignatureType)
         {
@@ -220,9 +268,11 @@
                                     case PgpSignatureSubpacket.nSubpacketType.CreationTime: DecodedPgpSubpacket = new PgpCreationTime(RawPgpSubpacket); break;
                                     case PgpSignatureSubpacket.nSubpacketType.KeyExpireTime: DecodedPgpSubpacket = new PgpKeyExpireTime(RawPgpSubpacket); break;
                                     case PgpSignatureSubpacket.nSubpacketType.PreferredSymmetricAlgorithms: DecodedPgpSubpacket = new PgpPreferredSymmetricAlgorithms(RawPgpSubpacket); break;
+                                    case PgpSignatureSubpacket.nSubpacketType.IssuerKeyId: DecodedPgpSubpacket = new PgpIssuerKeyId(RawPgpSubpacket); break;
                                     case PgpSignatureSubpacket.nSubpacketType.PreferredHashAlgorithms: DecodedPgpSubpacket = new PgpPreferredHashAlgorithms(RawPgpSubpacket); break;
                                     case PgpSignatureSubpacket.nSubpacketType.PreferredCompressionAlgorithms: DecodedPgpSubpacket = new PgpPreferredCompressionAlgorithms(RawPgpSubpacket); break;
                                     case PgpSignatureSubpacket.nSubpacketType.KeyServerPreferences: DecodedPgpSubpacket = new PgpKeyServerPreferences(RawPgpSubpacket); break;
+                                    case PgpSignatureSubpacket.nSubpacketType.PrimaryUserId: DecodedPgpSubpacket = new PgpPrimaryUserId(RawPgpSubpacket); break;
                                     case PgpSignatureSubpacket.nSubpacketType.KeyFlags: DecodedPgpSubpacket = new PgpKeyFlags(RawPgpSubpacket); break;
                                     case PgpSignatureSubpacket.nSubpacketType.RevocationReason: DecodedPgpSubpacket = new PgpRevocationReason(RawPgpSubpacket); break;
                                     case PgpSignatureSubpacket.nSubpacketType.Features: DecodedPgpSubpacket = new PgpFeatures(RawPgpSubpacket); break;
@@ -341,9 +391,34 @@
 
             _eTranslatedKeyFlags = nTranslatedKeyFlags.None;
 
-            if (_PrivateKeyPacket == null)
+            if (_PrivateKeyPacket != null)
             {
-                Console.WriteLine("TranslateKeyFlags: " + _PublicKeyPacket.ePacketTag.ToString());
+                if ((eTranslateFrom & PgpKeyFlags.nFlags.Certify) != PgpKeyFlags.nFlags.None)
+                    _eTranslatedKeyFlags |= nTranslatedKeyFlags.Certify;
+
+                if ((eTranslateFrom & PgpKeyFlags.nFlags.Sign) != PgpKeyFlags.nFlags.None)
+                    _eTranslatedKeyFlags |= nTranslatedKeyFlags.Sign;
+
+                if ((eTranslateFrom & PgpKeyFlags.nFlags.Encrypt) != PgpKeyFlags.nFlags.None)
+                    _eTranslatedKeyFlags |= nTranslatedKeyFlags.Decrypt;
+
+                if ((eTranslateFrom & PgpKeyFlags.nFlags.Authenticate) != PgpKeyFlags.nFlags.None)
+                    _eTranslatedKeyFlags |= nTranslatedKeyFlags.Authenticate;
+            }
+
+            if (_PublicKeyPacket != null)
+            {
+                if ((eTranslateFrom & PgpKeyFlags.nFlags.Certify) != PgpKeyFlags.nFlags.None)
+                    _eTranslatedKeyFlags |= nTranslatedKeyFlags.VerifyCertificates;
+
+                if ((eTranslateFrom & PgpKeyFlags.nFlags.Sign) != PgpKeyFlags.nFlags.None)
+                    _eTranslatedKeyFlags |= nTranslatedKeyFlags.VerifySignatures;
+
+                if ((eTranslateFrom & PgpKeyFlags.nFlags.Encrypt) != PgpKeyFlags.nFlags.None)
+                    _eTranslatedKeyFlags |= nTranslatedKeyFlags.Encrypt;
+
+                if ((eTranslateFrom & PgpKeyFlags.nFlags.Authenticate) != PgpKeyFlags.nFlags.None)
+                    _eTranslatedKeyFlags |= nTranslatedKeyFlags.VerifyAuthenticity;
             }
         }
 

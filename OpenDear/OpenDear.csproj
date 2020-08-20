@@ -28,7 +28,7 @@
     <UpdateRequired>false</UpdateRequired>
     <MapFileExtensions>true</MapFileExtensions>
     <ApplicationRevision>0</ApplicationRevision>
-    <ApplicationVersion>0.9.1.%2a</ApplicationVersion>
+    <ApplicationVersion>0.9.2.%2a</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
   </PropertyGroup>
@@ -38,7 +38,7 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;DEUTSCH</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -47,7 +47,7 @@
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
+    <DefineConstants>TRACE;DEUTSCH</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -65,7 +65,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <OutputPath>bin\x64\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
+    <DefineConstants>TRACE;DEUTSCH</DefineConstants>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>x64</PlatformTarget>
@@ -123,6 +123,7 @@
     <Compile Include="Crypto\PgpPreferredCompressionAlgorithms.cs" />
     <Compile Include="Crypto\PgpPreferredHashAlgorithms.cs" />
     <Compile Include="Crypto\PgpPreferredSymmetricAlgorithms.cs" />
+    <Compile Include="Crypto\PgpPrimaryUserId.cs" />
     <Compile Include="Crypto\PgpPrivateKey.cs" />
     <Compile Include="Crypto\PgpPublicKey.cs" />
     <Compile Include="Crypto\PgpPublicKeyEncryptedKey.cs" />
@@ -141,6 +142,7 @@
     <Compile Include="Model\Property.cs" />
     <Compile Include="Model\SQLiteDatabase.cs" />
     <Compile Include="ViewModel\AttachEncryptedPassword.cs" />
+    <Compile Include="ViewModel\DragDropTabItem.cs" />
     <Compile Include="ViewModel\DragDropTextBox.cs" />
     <Compile Include="ViewModel\MainViewModel_methods.cs" />
     <Compile Include="ViewModel\MainViewModel_properties.cs" />

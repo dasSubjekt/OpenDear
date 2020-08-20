@@ -88,14 +88,15 @@
         public override bool Equals(object Other)
         {
             if (Other == null)
+            {
                 return false;
+            }
             else
             {
-                PgpFingerprint OtherFingerprint = Other as PgpFingerprint;
-                if (OtherFingerprint == null)
-                    return false;
-                else
+                if (Other is PgpFingerprint OtherFingerprint)
                     return Equals(OtherFingerprint);
+                else
+                    return false;
             }
         }
 

@@ -29,16 +29,20 @@
             }
             else if (value is PgpSignature.nTranslatedKeyFlags)
             {
-                sReturn = value.ToString();
+                PgpSignature.nTranslatedKeyFlags eFlags = (PgpSignature.nTranslatedKeyFlags)value;
 
-                // switch (value)
-                // {
-                //     case PgpKeyFlags. : sReturn = "BitLocker"; break;
-                //     case CryptoKey.nKeyFormat.KeePass: sReturn = "KeePass"; break;
-                //     case CryptoKey.nKeyFormat.Password: sReturn = _ViewModelBase.Translate("KeyFormatPassword"); break;
-                //     case CryptoKey.nKeyFormat.Private: sReturn = _ViewModelBase.Translate("KeyFormatPrivate"); break;
-                //     case CryptoKey.nKeyFormat.Public: sReturn = _ViewModelBase.Translate("KeyFormatPublic"); break;
-                // }
+                sReturn = IfTrueAdd(sReturn, eFlags & PgpSignature.nTranslatedKeyFlags.Certify, "Certify");
+                sReturn = IfTrueAdd(sReturn, eFlags & PgpSignature.nTranslatedKeyFlags.VerifyCertificates, "VerifyCertificates");
+                sReturn = IfTrueAdd(sReturn, eFlags & PgpSignature.nTranslatedKeyFlags.Sign, "Sign");
+                sReturn = IfTrueAdd(sReturn, eFlags & PgpSignature.nTranslatedKeyFlags.VerifySignatures, "VerifySignatures");
+                sReturn = IfTrueAdd(sReturn, eFlags & PgpSignature.nTranslatedKeyFlags.Decrypt, "Decrypt");
+                sReturn = IfTrueAdd(sReturn, eFlags & PgpSignature.nTranslatedKeyFlags.Encrypt, "Encrypt");
+                sReturn = IfTrueAdd(sReturn, eFlags & PgpSignature.nTranslatedKeyFlags.Authenticate, "Authenticate");
+                sReturn = IfTrueAdd(sReturn, eFlags & PgpSignature.nTranslatedKeyFlags.VerifyAuthenticity, "VerifyAuthenticity");
+
+                if (string.IsNullOrEmpty(sReturn))
+                    sReturn = _ViewModelBase.Translate("None");
+
             }
             else if (value is PgpToken.nType)
             {
@@ -60,6 +64,14 @@
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             return Binding.DoNothing;
+        }
+
+        private string IfTrueAdd(string sResult, PgpSignature.nTranslatedKeyFlags eFlags, string sPhrase)
+        {
+            if ((eFlags != PgpSignature.nTranslatedKeyFlags.None) && !string.IsNullOrEmpty(sPhrase))
+                sResult += (string.IsNullOrEmpty(sResult) ? string.Empty : ", ") + _ViewModelBase.Translate(sPhrase);
+
+            return sResult;
         }
     }
 }

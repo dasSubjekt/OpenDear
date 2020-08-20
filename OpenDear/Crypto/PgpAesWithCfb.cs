@@ -95,6 +95,15 @@
             return Process(abPlain, true);
         }
 
+        private void Overwrite(byte[] abData)
+        {
+            if (abData != null)
+            {
+                for (int i = 0; i < abData.Length; i++)
+                    abData[i] = 0;
+            }
+        }
+
         private byte[] Process(byte[] abInputBuffer, bool isEncrypting)
         {
             int i, iLength, iOffset = 0;
@@ -106,7 +115,8 @@
 
                 while (iOffset < abInputBuffer.Length)
                 {
-                    _Cryptography.EncryptAesBlock(_abCfbInputVector, _abCfbOutputVector);
+                    Overwrite(_abCfbOutputVector);
+                    _abCfbOutputVector = _Cryptography.EncryptAesBlock(_abCfbInputVector);
 
                     if (abInputBuffer.Length < iOffset + EncryptionServices.ciIvOrSaltBytesLength)
                     {
@@ -149,8 +159,11 @@
                 if (_abCfbInputVector == null)
                     _abCfbInputVector = new byte[EncryptionServices.ciIvOrSaltBytesLength];
 
-                if (_abCfbOutputVector == null)
-                    _abCfbOutputVector = new byte[EncryptionServices.ciIvOrSaltBytesLength];
+                if (_abCfbOutputVector != null)
+                {
+                    _Cryptography.GetRandomBytes(_abCfbOutputVector);
+                    _abCfbOutputVector = null;
+                }
 
                 for (int i = 0; i < EncryptionServices.ciIvOrSaltBytesLength; i++)
                     _abCfbInputVector[i] = _abInitialisationVector[i];

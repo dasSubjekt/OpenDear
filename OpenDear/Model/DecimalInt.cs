@@ -396,14 +396,15 @@
         public override bool Equals(object Other)
         {
             if (Other == null)
+            {
                 return false;
+            }
             else
             {
-                DecimalInt Integer = Other as DecimalInt;
-                if (Integer == null)
-                    return false;
+                if (Other is DecimalInt OtherDecimalInt)
+                    return Equals(OtherDecimalInt);
                 else
-                    return Equals(Integer);
+                    return false;
             }
         }
 

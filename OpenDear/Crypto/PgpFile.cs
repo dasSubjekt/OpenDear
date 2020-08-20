@@ -7,6 +7,9 @@
 
     public class PgpFile
     {
+        /// <summary>Maximum possible size of an armored PGP key file.</summary>
+        public const long ckMaxKeyFileSize = ushort.MaxValue;   // TODO specify later
+
         private PgpArmor.nStatus _eStatus;
 
 
@@ -30,22 +33,23 @@
 
         #region methods
 
+        /// <summary>Reads all bytes into memory and removes PGP armor if present.</summary>
         public byte[] GetBytes(string sFilePath)
         {
             bool isAscii = true;
             byte[] abReturn = null;
             byte[] abBuffer = new byte[0x1000];
             int i, iBytesRead;
-            string sKeyString;
-            PgpArmor KeyArmor;
+            string sArmorString;
+            PgpArmor Armor;
 
-            using (FileStream KeyFileStream = new FileStream(sFilePath, FileMode.Open, FileAccess.Read))
+            using (FileStream PgpFileStream = new FileStream(sFilePath, FileMode.Open, FileAccess.Read))
             {
-                using (MemoryStream KeyMemoryStream = new MemoryStream())
+                using (MemoryStream PgpMemoryStream = new MemoryStream())
                 {
-                    while ((iBytesRead = KeyFileStream.Read(abBuffer, 0, abBuffer.Length)) > 0)
-                        KeyMemoryStream.Write(abBuffer, 0, iBytesRead);
-                    abReturn = KeyMemoryStream.ToArray();
+                    while ((iBytesRead = PgpFileStream.Read(abBuffer, 0, abBuffer.Length)) > 0)
+                        PgpMemoryStream.Write(abBuffer, 0, iBytesRead);
+                    abReturn = PgpMemoryStream.ToArray();
                 }
             }
 
@@ -58,14 +62,21 @@
 
                 if (isAscii)
                 {
-                    KeyArmor = new PgpArmor();
-                    sKeyString = Encoding.ASCII.GetString(abReturn);
-                    abReturn = KeyArmor.Parse(sKeyString);
-                    _eStatus = KeyArmor.eStatus;
+                    Armor = new PgpArmor();
+                    sArmorString = Encoding.ASCII.GetString(abReturn);
+                    abReturn = Armor.Parse(sArmorString);
+                    _eStatus = Armor.eStatus;
                 }
             }
 
             return abReturn;
+        }
+
+        public long GetFileSize(string sFilePath)
+        {
+            FileInfo PgpFileInfo = new FileInfo(sFilePath);
+
+            return PgpFileInfo.Length;
         }
 
         #endregion

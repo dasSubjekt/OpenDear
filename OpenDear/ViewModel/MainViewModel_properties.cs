@@ -28,9 +28,9 @@
 
         public enum nMenuTab { Setup = 0, User = 1, Keys = 2, Data = 3, Progress = 4 };
 
-        private bool _isDatabaseWithPassword, _isProgressBarIndeterminate;
+        private bool _isDatabaseWithPassword, _isDragOverData, _isDragOverKeys, _isProgressBarIndeterminate;
         private int _iErrorId, _iPassword1Length, _iPassword2Length, _iProgressBarValue, _iProgressBarMaximum, _iUserPinLength;
-        private string _sBackgroundStatus, _sDatabaseDirectory, _sErrorMessage, _sImportKeyFilePath, _sNewDatabaseName;
+        private string _sBackgroundStatus, _sDatabaseDirectory, _sErrorMessage, _sInputKeyFilePath, _sInputMessageFilePath, _sNewDatabaseName;
         private byte[] _abEncryptedPassword1, _abEncryptedPassword2, _abEncryptedUserPin;
         private nMenuTab _eMenuTab;
         private BackgroundThread _BackgroundThread;
@@ -53,8 +53,10 @@
         public ICommand rcF5 { get; }
         public ICommand rcIsClosing { get; }
         public ICommand rcLogin { get; }
+        public ICommand rcReadMessage { get; }
+        public ICommand rcReadKeyFile { get; }
         public ICommand rcRefreshTokens { get; }
-        public ICommand rcImportKey { get; }
+        public ICommand rcSelectInputMessage { get; }
         public ICommand rcSelectKey { get; }
         public ICommand rcUnlockKey { get; }
 
@@ -76,8 +78,9 @@
         public string sFileParseError { get => Translate("FileParseError"); }
         public string sFileParseErrorSub { get => Translate("FileParseErrorSub"); }
         public string sFunctionsText { get => Translate("FunctionsText"); }
-        public string sImport { get => Translate("Import"); }
+        public string sInputFileText { get => Translate("InputFileText"); }
         public string sKeyFileText { get => Translate("KeyFileText"); }
+        public string sKeyFileTooLarge { get => Translate("KeyFileTooLarge"); }
         public string sKeysOrTokensText { get => Translate("KeysOrTokensText"); }
         public string sKeys { get => Translate("Keys"); }
         public string sLogin { get => Translate("Login"); }
@@ -87,8 +90,10 @@
         public string sOpenScInformation { get => Translate("OpenScInformation"); }
         public string sPin { get => Translate("Pin"); }
         public string sProgress { get => Translate("Progress"); }
+        public string sRead { get => Translate("Read"); }
         public string sRefreshTokens { get => Translate("RefreshTokens"); }
         public string sSelect { get => Translate("Select"); }
+        public string sSelectInputMessage { get => Translate("sSelectInputMessage"); }
         public string sSelectKeyFile { get => Translate("SelectKeyFile"); }
         public string sSetup { get => Translate("Setup"); }
         public string sSubkeysText { get => Translate("SubkeysText"); }
@@ -144,6 +149,42 @@
                 {
                     _isDatabaseWithPassword = false;
                     RaisePropertyChangedDbWithPassword();
+                }
+            }
+        }
+
+        /// <summary></summary>
+        public bool isDragOverData
+        {
+            get { return _isDragOverData; }
+            set
+            {
+                if (value != _isDragOverData)
+                {
+                    _isDragOverData = value;
+
+                    if (_isDragOverData && (eMenuTab != nMenuTab.Data))
+                        eMenuTab = nMenuTab.Data;
+
+                    RaisePropertyChanged("isDragOverData");
+                }
+            }
+        }
+
+        /// <summary></summary>
+        public bool isDragOverKeys
+        {
+            get { return _isDragOverKeys; }
+            set
+            {
+                if (value != _isDragOverKeys)
+                {
+                    _isDragOverKeys = value;
+
+                    if (_isDragOverKeys && (eMenuTab != nMenuTab.Keys))
+                        eMenuTab = nMenuTab.Keys;
+
+                    RaisePropertyChanged("isDragOverKeys");
                 }
             }
         }
@@ -226,11 +267,20 @@
         }
 
         /// <summary></summary>
-        public bool isExecuteImportKey
+        public bool isExecuteReadMessage
         {
             get
             {
-                return !(string.IsNullOrEmpty(_sImportKeyFilePath) || PropertyHasErrors("sImportKeyFilePath"));
+                return !(string.IsNullOrEmpty(_sInputMessageFilePath) || PropertyHasErrors("sInputMessageFilePath"));
+            }
+        }
+
+        /// <summary></summary>
+        public bool isExecuteReadKeyFile
+        {
+            get
+            {
+                return !(string.IsNullOrEmpty(_sInputKeyFilePath) || PropertyHasErrors("sInputKeyFilePath"));
             }
         }
 
@@ -243,18 +293,35 @@
             }
         }
 
-        public string sImportKeyFilePath
+        public string sInputKeyFilePath
         {
-            get { return _sImportKeyFilePath; }
+            get { return _sInputKeyFilePath; }
             set
             {
-                if (value != _sImportKeyFilePath)
+                if (value != _sInputKeyFilePath)
                 {
-                    ValidateRaiseErrorsChanged(nValidationType.Single, "sImportKeyFilePath", string.IsNullOrEmpty(value) || File.Exists(value), Translate("KeyFileDoesNotExist"));
+                    ValidateRaiseErrorsChanged(nValidationType.Single, "sInputKeyFilePath", string.IsNullOrEmpty(value) || File.Exists(value), Translate("KeyFileDoesNotExist"));
 
-                    _sImportKeyFilePath = value;
+                    _sInputKeyFilePath = value;
                     RaisePropertyChanged("sStatus");
-                    RaisePropertyChanged("sImportKeyFilePath");
+                    RaisePropertyChanged("sInputKeyFilePath");
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
+        }
+
+        public string sInputMessageFilePath
+        {
+            get { return _sInputMessageFilePath; }
+            set
+            {
+                if (value != _sInputMessageFilePath)
+                {
+                    ValidateRaiseErrorsChanged(nValidationType.Single, "sInputMessageFilePath", string.IsNullOrEmpty(value) || File.Exists(value), Translate("InputFileDoesNotExist"));
+
+                    _sInputMessageFilePath = value;
+                    RaisePropertyChanged("sStatus");
+                    RaisePropertyChanged("sInputMessageFilePath");
                     CommandManager.InvalidateRequerySuggested();
                 }
             }
@@ -269,6 +336,12 @@
                 if (value != _eMenuTab)
                 {
                     _eMenuTab = value;
+
+                    if (_eMenuTab != nMenuTab.Keys)
+                        isDragOverKeys = false;
+                    else if (_eMenuTab != nMenuTab.Data)
+                        isDragOverData = false;
+
                     RaisePropertyChanged("iMenuTab");
                 }
             }

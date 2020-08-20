@@ -285,34 +285,29 @@
         }
 
         /// <summary></summary>
-        public void EncryptAesBlock(byte[] abInputBlock, byte[] abOutputBlock)
+        public byte[] EncryptAesBlock(byte[] abPlainBlock)
         {
-            byte[] abEncrypted = null;
+            byte[] abReturn = null;
 
-            if ((abInputBlock != null) && (abInputBlock.Length == ciIvOrSaltBytesLength) && (abOutputBlock != null) && (abOutputBlock.Length == ciIvOrSaltBytesLength) && (_AesServices.Key != null) && (_AesServices.IV != null) && (_AesServices.Padding == PaddingMode.Zeros))
+            if ((abPlainBlock != null) && (abPlainBlock.Length == ciIvOrSaltBytesLength) && (_AesServices.Key != null) && (_AesServices.IV != null) && (_AesServices.Padding == PaddingMode.Zeros))
             {
                 using (ICryptoTransform AesEncryptor = _AesServices.CreateEncryptor())
                 {
                     using (MemoryStream AesMemoryStream = new MemoryStream())
                     {
                         using (CryptoStream AesCryptoStream = new CryptoStream(AesMemoryStream, AesEncryptor, CryptoStreamMode.Write))
-                        {
-                            AesCryptoStream.Write(abInputBlock, 0, ciIvOrSaltBytesLength);
-                        }
-                        abEncrypted = AesMemoryStream.ToArray();
+                            AesCryptoStream.Write(abPlainBlock, 0, ciIvOrSaltBytesLength);
+
+                        abReturn = AesMemoryStream.ToArray();
                     }
                 }
 
-                if ((abEncrypted == null) || (abEncrypted.Length != ciIvOrSaltBytesLength))
-                {
-                    throw new CryptographicException("EncryptionServices.EncryptAesBlock()");
-                }
-                else
-                {
-                    for (int i = 0; i < ciIvOrSaltBytesLength; i++)
-                        abOutputBlock[i] = abEncrypted[i];
-                }
             }
+
+            if ((abReturn == null) || (abReturn.Length != ciIvOrSaltBytesLength))
+                throw new CryptographicException("EncryptionServices.EncryptAesBlock()");
+            else
+                return abReturn;
         }
 
         /// <summary></summary>

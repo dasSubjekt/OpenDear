@@ -153,14 +153,15 @@
         public override bool Equals(object Other)
         {
             if (Other == null)
+            {
                 return false;
+            }
             else
             {
-                Property OtherProperty = Other as Property;
-                if (OtherProperty == null)
-                    return false;
-                else
+                if (Other is Property OtherProperty)
                     return Equals(OtherProperty);
+                else
+                    return false;
             }
         }
 
