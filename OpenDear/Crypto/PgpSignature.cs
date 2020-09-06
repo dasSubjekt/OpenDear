@@ -4,6 +4,7 @@
     using System.IO;
     using System.Collections.Generic;
     using System.Security.Cryptography;
+    using Net.Pkcs11Interop.HighLevelAPI;
 
 
     /// <summary>Implements RFC 4880 section 5.2. Signature Packet.</summary>
@@ -23,6 +24,9 @@
             VerifyAuthenticity = 0x80,
         }
 
+        public enum nVerified { False, KeyNotFound, Pending, True };
+
+
         /// <summary>Only version 4 Signature Packets are implemented, see RFC 4880 section 5.2.3. Version 4 Signature Packet Format.</summary>
         private const byte cbAllowedVersion = 4;
 
@@ -35,8 +39,9 @@
         /// <summary>Version number + signature type + public-key algorithm + hash algorithm + hashed subpackets length (2 bytes) = 6 bytes, see RFC 4880 section 5.2.3. Version 4 Signature Packet Format.</summary>
         private const int ciSignatureHeaderLength = 6;
 
-        private byte[] _abHashFingerprint, _abSignature;
+        private byte[] _abFingerprint, _abHashFingerprint, _abSignature;
         private int _iHashedLength, _iSignatureBits;
+        private nVerified _eVerified;
         private nSignatureType _eSignatureType;
         private nTranslatedKeyFlags _eTranslatedKeyFlags;
         private nPublicKeyAlgorithm _ePublicKeyAlgorithm;
@@ -50,13 +55,13 @@
 
         #region constructors
 
-        public PgpSignature(PgpPacket FromPacket, PgpPublicKey PublicMasterKeyPacket, PgpUserId UserIdPacket, EncryptionServices Cryptography) : base(FromPacket)
+        public PgpSignature(PgpPacket FromPacket, PgpPublicKey PublicMasterKeyPacket, PgpUserId UserIdPacket, List<PgpToken> ltTokens, EncryptionServices Cryptography) : base(FromPacket)
         {
             Initialise(nSignatureType.PositiveCertification);
             _PublicKeyPacket = PublicMasterKeyPacket;
             _UserIdPacket = UserIdPacket;
             _Cryptography = Cryptography;
-            ParseSignature(_PublicKeyPacket);
+            Parse(_PublicKeyPacket, ltTokens);
         }
 
         public PgpSignature(PgpPacket FromPacket, PgpPublicKey PublicMasterKeyPacket, PgpPublicKey PublicKeyPacket, EncryptionServices Cryptography) : base(FromPacket)
@@ -64,17 +69,17 @@
             Initialise(nSignatureType.SubkeyBinding);
             _PublicKeyPacket = PublicKeyPacket;
             _Cryptography = Cryptography;
-            ParseSignature(PublicMasterKeyPacket);
+            Parse(PublicMasterKeyPacket);
         }
 
-        public PgpSignature(PgpPacket FromPacket, PgpPrivateKey PrivateMasterKeyPacket, PgpUserId UserIdPacket, EncryptionServices Cryptography) : base(FromPacket)
+        public PgpSignature(PgpPacket FromPacket, PgpPrivateKey PrivateMasterKeyPacket, PgpUserId UserIdPacket, List<PgpToken> ltTokens, EncryptionServices Cryptography) : base(FromPacket)
         {
             Initialise(nSignatureType.PositiveCertification);
             _PrivateKeyPacket = PrivateMasterKeyPacket;
             _PublicKeyPacket = PrivateMasterKeyPacket.PublicKey;
             _UserIdPacket = UserIdPacket;
             _Cryptography = Cryptography;
-            ParseSignature(_PublicKeyPacket);
+            Parse(_PublicKeyPacket, ltTokens);
         }
 
         public PgpSignature(PgpPacket FromPacket, PgpPublicKey PublicMasterKeyPacket, PgpPrivateKey PrivateKeyPacket, EncryptionServices Cryptography) : base(FromPacket)
@@ -83,24 +88,97 @@
             _PrivateKeyPacket = PrivateKeyPacket;
             _PublicKeyPacket = PrivateKeyPacket.PublicKey;
             _Cryptography = Cryptography;
-            ParseSignature(PublicMasterKeyPacket);
+            Parse(PublicMasterKeyPacket);
         }
 
-        // public PgpSignature(PgpKeyFlags.nFlags eKeyFlags) : base()
-        // {
-        //     PgpSignatureSubpacket NewSubpacket;
-        // 
-        //     Initialise();
-        // 
-        //     _eSignatureType = (eKeyFlags & PgpKeyFlags.nFlags.Sign) == 0 ? nSignatureType.SubkeyBinding : nSignatureType.PositiveCertification;
-        // 
-        //     NewSubpacket = new PgpKeyFlags(eKeyFlags);
-        //     _ltSubpackets.Add(NewSubpacket);
-        // }
+        public PgpSignature(ISlotInfo SlotInfo, byte[] abId, PgpKeyFlags.nFlags eKeyFlags, byte[] abModulus, byte[] abExponent, EncryptionServices Cryptography) : base(nPacketTag.Signature)
+        {
+            PgpSignatureSubpacket NewSubpacket;
+
+            Initialise((eKeyFlags & PgpKeyFlags.nFlags.Sign) == 0 ? nSignatureType.SubkeyBinding : nSignatureType.PositiveCertification);
+
+            if ((SlotInfo == null) || (abId == null) || (abModulus == null) || (abExponent == null) || (Cryptography == null))
+            {
+                _eStatus = nStatus.MissingArgument;
+            }
+            else
+            {
+                _eStatus = nStatus.OK;
+                _Cryptography = Cryptography;
+                _PublicKeyPacket = new PgpPublicKey(SlotInfo, abId, (eKeyFlags & PgpKeyFlags.nFlags.Sign) == 0 ? nPacketTag.PublicSubkey : nPacketTag.PublicKey, DateTime.Now, nPublicKeyAlgorithm.RsaEncryptOrSign, abModulus, abExponent);
+                
+                NewSubpacket = new PgpKeyFlags(eKeyFlags);
+                _ltSubpackets.Add(NewSubpacket);
+                _eTranslatedKeyFlags = TranslateKeyFlags();
+            }
+        }
 
         #endregion
 
         #region properties
+
+        /// <summary></summary>
+        public DateTime? CreatedKey
+        {
+            get
+            {
+                if (_PublicKeyPacket == null)
+                    return null;
+                else
+                    return _PublicKeyPacket.Created;
+            }
+        }
+
+        /// <summary></summary>
+        public DateTime? CreatedSignature
+        {
+            get
+            {
+                PgpCreationTime CreationTimeSubpacket = (PgpCreationTime)GetSubpaket(PgpSignatureSubpacket.nSubpacketType.CreationTime);
+
+                if (CreationTimeSubpacket == null)
+                    return null;
+                else
+                    return CreationTimeSubpacket.Created;
+            }
+        }
+
+        /// <summary></summary>
+        public DateTime? Expires
+        {
+            get
+            {
+                uint uSeconds;
+                DateTime? SignatureCreationDate = CreatedSignature;
+                PgpKeyExpireTime KeyExpireTimeSubpacket = (PgpKeyExpireTime)GetSubpaket(PgpSignatureSubpacket.nSubpacketType.KeyExpireTime);
+
+                if ((SignatureCreationDate == null) || (KeyExpireTimeSubpacket == null))
+                    return null;
+                else
+                {
+                    uSeconds = (uint)(SignatureCreationDate.Value.ToUniversalTime().Ticks / TimeSpan.TicksPerSecond - ckSeconds_1_1_1970_Utc);
+                    return new DateTime((ckSeconds_1_1_1970_Utc + uSeconds + KeyExpireTimeSubpacket.uSecondsValid) * TimeSpan.TicksPerSecond);
+                }
+            }
+        }
+
+        /// <summary></summary>
+        public byte[] abExponent
+        {
+            get
+            {
+                if (_PublicKeyPacket == null)
+                    return null;
+                else
+                    return _PublicKeyPacket.KeyParameters.Exponent;
+            }
+        }
+
+        /// <summary>SHA-1 hash of the public key packet, see RFC 4880 section 12.2. Key IDs and Fingerprints</summary>
+        public byte[] abFingerprint
+        {
+            get { return _abFingerprint; }
+        }
 
         /// <summary></summary>
         public nHashAlgorithm eHashAlgorithm
@@ -112,12 +190,42 @@
         {
             get
             {
-                PgpSignatureSubpacket KeyFlagsSubpacket = null;
+                PgpKeyFlags KeyFlagsSubpacket = (PgpKeyFlags)GetSubpaket(PgpSignatureSubpacket.nSubpacketType.KeyFlags);
 
-                if (_ltSubpackets != null)
-                    KeyFlagsSubpacket = _ltSubpackets.Find(p => p.eType == PgpSignatureSubpacket.nSubpacketType.KeyFlags);
+                return KeyFlagsSubpacket == null ? PgpKeyFlags.nFlags.None : KeyFlagsSubpacket.eFlags;
+            }
+        }
 
-                return KeyFlagsSubpacket == null ? PgpKeyFlags.nFlags.None : ((PgpKeyFlags)KeyFlagsSubpacket).eFlags;
+        /// <summary>Locks this subkey and overwrites its secret data.</summary>
+        public void Lock()
+        {
+            if (_PrivateKeyPacket != null)
+                _PrivateKeyPacket.Lock();
+        }
+
+        /// <summary></summary>
+        public byte[] abMasterKeyFingerprint
+        {
+            get
+            {
+                PgpMasterKeyFingerprint FingerprintSubpacket = (PgpMasterKeyFingerprint)GetSubpaket(PgpSignatureSubpacket.nSubpacketType.MasterKeyFingerprint);
+
+                if (FingerprintSubpacket == null)
+                    return null;
+                else
+                    return FingerprintSubpacket.abFingerprint;
+            }
+        }
+
+        /// <summary></summary>
+        public byte[] abModulus
+        {
+            get
+            {
+                if (_PublicKeyPacket == null)
+                    return null;
+                else
+                    return _PublicKeyPacket.KeyParameters.Modulus;
             }
         }
 
@@ -166,9 +274,33 @@
             get { return _eTranslatedKeyFlags; }
         }
 
+        /// <summary></summary>
+        public nVerified eVerified
+        {
+            get { return _eVerified; }
+        }
+
         #endregion
 
         #region methods
+
+        /// <summary></summary>
+        private byte[] ComputeFingerprint()
+        {
+            byte[] abBytesToHash, abReturn = null;
+
+            if (_PublicKeyPacket != null)
+            {
+                using (MemoryStream StreamToHash = new MemoryStream())
+                {
+                    HashPublicKeyData(StreamToHash, _PublicKeyPacket);
+                    abBytesToHash = StreamToHash.ToArray();
+                }
+                abReturn = _Cryptography.ComputeHash(abBytesToHash, HashAlgorithmName.SHA1);
+            }
+
+            return abReturn;
+        }
 
         /// <summary></summary>
         /// <param name=""></param>
@@ -212,10 +344,22 @@
             return 0;
         }
 
+        private PgpSignatureSubpacket GetSubpaket(PgpSignatureSubpacket.nSubpacketType eSubpacketType)
+        {
+            PgpSignatureSubpacket Return = null;
+
+            if (_ltSubpackets != null)
+                Return = _ltSubpackets.Find(p => p.eType == eSubpacketType);
+
+            return Return;
+        }
+
+        /// <summary></summary>
         private void Initialise(nSignatureType eSignatureType)
         {
-            _abHashFingerprint = _abSignature = null;
+            _abFingerprint = _abHashFingerprint = _abSignature = null;
             _iHashedLength = _iSignatureBits = 0;
+            _eVerified = nVerified.Pending;
             _eSignatureType = eSignatureType;
             _eTranslatedKeyFlags = nTranslatedKeyFlags.None;
             _ePublicKeyAlgorithm = nPublicKeyAlgorithm.RsaEncryptOrSign;
@@ -227,11 +371,14 @@
             _ltSubpackets = new List<PgpSignatureSubpacket>();
         }
 
-
-        public void ParseSignature(PgpPublicKey MasterKey)
+        /// <summary></summary>
+        public void Parse(PgpPublicKey MasterKey, List<PgpToken> ltTokens = null)
         {
+            bool isThisMasterKey = true;
             byte bVersion;
-            int iSubpacketPointer, iSignatureBytes, iUnhashedLength;
+            byte[] abMasterFingerprint;
+            int i, iSubpacketPointer, iSignatureBytes, iUnhashedLength;
+            PgpSignature FoundSubkey;
             PgpSignatureSubpacket DecodedPgpSubpacket, RawPgpSubpacket;
 
             if ((_abRawBytes == null) || (_abRawBytes.Length < _iHeaderLength + ciSignatureHeaderLength) || (_ePacketTag != nPacketTag.Signature))
@@ -252,11 +399,6 @@
                     if (((_ePublicKeyAlgorithm == nPublicKeyAlgorithm.RsaEncryptOrSign) || (_ePublicKeyAlgorithm == nPublicKeyAlgorithm.RsaSignOnly)) &&
                        (_eHashAlgorithm == nHashAlgorithm.Sha1) || (_eHashAlgorithm == nHashAlgorithm.Sha256) || (_eHashAlgorithm == nHashAlgorithm.Sha384) || (_eHashAlgorithm == nHashAlgorithm.Sha512))
                     {
-                        Console.WriteLine("eSignatureType=" + _eSignatureType.ToString());
-                        Console.WriteLine("ePublicKeyAlgorithm=" + _ePublicKeyAlgorithm.ToString());
-                        Console.WriteLine("eHashAlgorithm=" + _eHashAlgorithm.ToString());
-                        Console.WriteLine("iHashedLength=" + _iHashedLength.ToString());
-
                         iSubpacketPointer = _iHeaderLength + ciSignatureHeaderLength;
                         while ((_eStatus == nStatus.OK) && (iSubpacketPointer < _iHeaderLength + ciSignatureHeaderLength + _iHashedLength))
                         {
@@ -276,16 +418,17 @@
                                     case PgpSignatureSubpacket.nSubpacketType.KeyFlags: DecodedPgpSubpacket = new PgpKeyFlags(RawPgpSubpacket); break;
                                     case PgpSignatureSubpacket.nSubpacketType.RevocationReason: DecodedPgpSubpacket = new PgpRevocationReason(RawPgpSubpacket); break;
                                     case PgpSignatureSubpacket.nSubpacketType.Features: DecodedPgpSubpacket = new PgpFeatures(RawPgpSubpacket); break;
-                                    case PgpSignatureSubpacket.nSubpacketType.Fingerprint: DecodedPgpSubpacket = new PgpFingerprint(RawPgpSubpacket); break;
+                                    case PgpSignatureSubpacket.nSubpacketType.MasterKeyFingerprint: DecodedPgpSubpacket = new PgpMasterKeyFingerprint(RawPgpSubpacket); break;
                                     default: DecodedPgpSubpacket = null; Console.WriteLine("not implemented: eType=" + RawPgpSubpacket.eType.ToString()); break;
                                 }
 
                                 if ((DecodedPgpSubpacket == null) || (DecodedPgpSubpacket.eStatus != nStatus.OK))
-                                {                                    
+                                {
                                     _eStatus = nStatus.ParseError;
                                 }
                                 else
                                 {
+                                    // Console.WriteLine("found eType=" + RawPgpSubpacket.eType.ToString());
                                     _ltSubpackets.Add(DecodedPgpSubpacket);
                                     iSubpacketPointer += (RawPgpSubpacket.iHeaderLength + RawPgpSubpacket.iDataLength);
                                 }
@@ -321,8 +464,9 @@
                             else
                                 _eStatus = nStatus.ParseError;
                         }
-                        // Console.WriteLine("iSubpacketPointer=" + iSubpacketPointer.ToString());
-                        TranslateKeyFlags();
+
+                        _abFingerprint = ComputeFingerprint();
+                        _eTranslatedKeyFlags = TranslateKeyFlags();
 
                         if (_abRawBytes.Length > iSubpacketPointer + 2)
                         {
@@ -331,14 +475,47 @@
                             iSignatureBytes = (_iSignatureBits + 7) >> 3;
                             iSubpacketPointer += 4;
 
-                            // Console.WriteLine("abHashFingerprint: 0x" + _abHashFingerprint[0].ToString("x2") + ", 0x" + _abHashFingerprint[1].ToString("x2") + " iSignatureBits=" + _iSignatureBits.ToString());
-
                             if (_abRawBytes.Length == iSubpacketPointer + iSignatureBytes)
                             {
                                 _abSignature = CopyFromRawBytes(iSubpacketPointer, iSignatureBytes);
 
-                                if (!Verify(MasterKey))
-                                    _eStatus = nStatus.SignatureNotVerified;
+                                if (_PublicKeyPacket != null)
+                                    _PublicKeyPacket.Signature = this;
+
+                                abMasterFingerprint = abMasterKeyFingerprint;   // do the underlying checks only once
+
+                                if ((abMasterFingerprint != null) && (abMasterFingerprint.Length == ciSha1FingerprintLength) && (MasterKey.Signature != null)
+                                    && (MasterKey.Signature.abFingerprint != null) && (MasterKey.Signature.abFingerprint.Length == ciSha1FingerprintLength))
+                                {
+                                    for (i = 0; i < ciSha1FingerprintLength; i++)
+                                        isThisMasterKey = isThisMasterKey && (abMasterFingerprint[i] == MasterKey.Signature.abFingerprint[i]);
+
+                                    if (!isThisMasterKey)
+                                    {
+                                        MasterKey = null;
+
+                                        if (ltTokens != null)
+                                        {
+                                            foreach (PgpToken Token in ltTokens)
+                                            {
+                                                if (MasterKey == null)
+                                                {
+                                                    FoundSubkey = Token.GetSubkey(abMasterFingerprint);
+
+                                                    if (FoundSubkey != null)
+                                                        MasterKey = FoundSubkey.PublicKeyPacket;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (MasterKey == null)
+                                    _eVerified = nVerified.KeyNotFound;
+                                else if (Verify(MasterKey))
+                                    _eVerified = nVerified.True;
+                                else
+                                    _eVerified = nVerified.False;
                             }
                             else
                                 _eStatus = nStatus.ParseError;
@@ -352,8 +529,10 @@
                 else
                     _eStatus = nStatus.VersionNotSupported;
             }
+            // else keep the value of _eStatus from PgpPacketBase
         }
 
+        /// <summary></summary>
         private void HashPublicKeyData(MemoryStream StreamToHash, PgpPublicKey PublicKey)
         {
             StreamToHash.WriteByte(cbKeyCertificationTag);
@@ -362,6 +541,7 @@
             StreamToHash.Write(PublicKey.abRawBytes, PublicKey.iHeaderLength, PublicKey.iDataLength);
         }
 
+        /// <summary></summary>
         private void HashTrailerData(MemoryStream StreamToHash)
         {
             int iLength = _iHashedLength + ciSignatureHeaderLength;
@@ -375,6 +555,7 @@
             StreamToHash.WriteByte((byte)(iLength & 0xff));
         }
 
+        /// <summary></summary>
         private void HashUserIdData(MemoryStream StreamToHash, PgpUserId UserId)
         {
             StreamToHash.WriteByte(cbUserIdCertificationTag);
@@ -385,43 +566,57 @@
             StreamToHash.Write(UserId.abRawBytes, UserId.iHeaderLength, UserId.iDataLength);
         }
 
-        private void TranslateKeyFlags()
+        /// <summary></summary>
+        private nTranslatedKeyFlags TranslateKeyFlags()
         {
             PgpKeyFlags.nFlags eTranslateFrom = eKeyFlags;
-
-            _eTranslatedKeyFlags = nTranslatedKeyFlags.None;
+            nTranslatedKeyFlags eReturn = nTranslatedKeyFlags.None;
 
             if (_PrivateKeyPacket != null)
             {
                 if ((eTranslateFrom & PgpKeyFlags.nFlags.Certify) != PgpKeyFlags.nFlags.None)
-                    _eTranslatedKeyFlags |= nTranslatedKeyFlags.Certify;
+                    eReturn |= nTranslatedKeyFlags.Certify;
 
                 if ((eTranslateFrom & PgpKeyFlags.nFlags.Sign) != PgpKeyFlags.nFlags.None)
-                    _eTranslatedKeyFlags |= nTranslatedKeyFlags.Sign;
+                    eReturn |= nTranslatedKeyFlags.Sign;
 
                 if ((eTranslateFrom & PgpKeyFlags.nFlags.Encrypt) != PgpKeyFlags.nFlags.None)
-                    _eTranslatedKeyFlags |= nTranslatedKeyFlags.Decrypt;
+                    eReturn |= nTranslatedKeyFlags.Decrypt;
 
                 if ((eTranslateFrom & PgpKeyFlags.nFlags.Authenticate) != PgpKeyFlags.nFlags.None)
-                    _eTranslatedKeyFlags |= nTranslatedKeyFlags.Authenticate;
+                    eReturn |= nTranslatedKeyFlags.Authenticate;
             }
 
             if (_PublicKeyPacket != null)
             {
                 if ((eTranslateFrom & PgpKeyFlags.nFlags.Certify) != PgpKeyFlags.nFlags.None)
-                    _eTranslatedKeyFlags |= nTranslatedKeyFlags.VerifyCertificates;
+                    eReturn |= nTranslatedKeyFlags.VerifyCertificates;
 
                 if ((eTranslateFrom & PgpKeyFlags.nFlags.Sign) != PgpKeyFlags.nFlags.None)
-                    _eTranslatedKeyFlags |= nTranslatedKeyFlags.VerifySignatures;
+                    eReturn |= nTranslatedKeyFlags.VerifySignatures;
 
                 if ((eTranslateFrom & PgpKeyFlags.nFlags.Encrypt) != PgpKeyFlags.nFlags.None)
-                    _eTranslatedKeyFlags |= nTranslatedKeyFlags.Encrypt;
+                    eReturn |= nTranslatedKeyFlags.Encrypt;
 
                 if ((eTranslateFrom & PgpKeyFlags.nFlags.Authenticate) != PgpKeyFlags.nFlags.None)
-                    _eTranslatedKeyFlags |= nTranslatedKeyFlags.VerifyAuthenticity;
+                    eReturn |= nTranslatedKeyFlags.VerifyAuthenticity;
             }
+
+            return eReturn;
         }
 
+        /// <summary>Unlocks this subkey with the passphrase and decrypts its secret data.</summary>
+        public bool Unlock(byte[] abPassphrase)
+        {
+            bool isReturn = false;
+
+            if (_PrivateKeyPacket != null)
+                isReturn = _PrivateKeyPacket.Unlock(abPassphrase);
+
+            return isReturn;
+        }
+
+        /// <summary></summary>
         private bool Verify(PgpPublicKey MasterKey)
         {
             byte[] abHashedData, abBytesToHash;
@@ -432,7 +627,7 @@
 
             using (MemoryStream StreamToHash = new MemoryStream())
             {
-                if ((_eSignatureType == nSignatureType.GenericCertification) || (_eSignatureType == nSignatureType.PersonalCertification) || (_eSignatureType == nSignatureType.CasualCertification) || (_eSignatureType == nSignatureType.PositiveCertification))
+                if ((_eSignatureType == nSignatureType.GenericCertification) || (_eSignatureType == nSignatureType.PersonaCertification) || (_eSignatureType == nSignatureType.CasualCertification) || (_eSignatureType == nSignatureType.PositiveCertification))
                 {
                     HashPublicKeyData(StreamToHash, MasterKey);
                     HashUserIdData(StreamToHash, _UserIdPacket);
@@ -453,17 +648,15 @@
                 case nHashAlgorithm.Sha256: HashAlgorithm = HashAlgorithmName.SHA256; break;
                 case nHashAlgorithm.Sha384: HashAlgorithm = HashAlgorithmName.SHA384; break;
                 case nHashAlgorithm.Sha512: HashAlgorithm = HashAlgorithmName.SHA512; break;
-                default: HashAlgorithm = HashAlgorithmName.MD5; break;   // uses MD5 as null value
+                default: HashAlgorithm = HashAlgorithmName.MD5; break;   // use MD5 as null value
             }
 
             if (HashAlgorithm != HashAlgorithmName.MD5)
                 abHashedData = _Cryptography.ComputeHash(abBytesToHash, HashAlgorithm);
 
             if ((abHashedData != null) && (abHashedData[0] == _abHashFingerprint[0]) && (abHashedData[1] == _abHashFingerprint[1]) && (HashAlgorithm != HashAlgorithmName.MD5))
-            {
                 isReturn = _Cryptography.VerifyRsa(abBytesToHash, _abSignature, HashAlgorithm, MasterKey);
-                Console.WriteLine("isVerified=" + isReturn.ToString());
-            }
+
             return isReturn;
         }
         #endregion

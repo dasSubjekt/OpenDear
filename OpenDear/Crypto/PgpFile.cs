@@ -34,7 +34,7 @@
         #region methods
 
         /// <summary>Reads all bytes into memory and removes PGP armor if present.</summary>
-        public byte[] GetBytes(string sFilePath)
+        public byte[] GetBytes(string sFilePath, bool isKey)
         {
             bool isAscii = true;
             byte[] abReturn = null;
@@ -43,6 +43,7 @@
             string sArmorString;
             PgpArmor Armor;
 
+            // read the file into an array of bytes in working memory
             using (FileStream PgpFileStream = new FileStream(sFilePath, FileMode.Open, FileAccess.Read))
             {
                 using (MemoryStream PgpMemoryStream = new MemoryStream())
@@ -64,7 +65,7 @@
                 {
                     Armor = new PgpArmor();
                     sArmorString = Encoding.ASCII.GetString(abReturn);
-                    abReturn = Armor.Parse(sArmorString);
+                    abReturn = Armor.Parse(sArmorString, isKey);
                     _eStatus = Armor.eStatus;
                 }
             }

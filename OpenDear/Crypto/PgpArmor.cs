@@ -69,7 +69,8 @@
 
         /// <summary></summary>
         /// <param name=""></param>
-        public byte[] Parse(string sArmor)
+        /// <param name=""></param>
+        public byte[] Parse(string sArmor, bool isKey)
         {
             byte[] abCrc24, abReturn = null;
             int i, iCrc24Value;
@@ -93,7 +94,7 @@
                     switch (eArmorParserState)
                     {
                         case nArmorParserState.Start:
-                            eArmorParserState = ParseCheckForHeader(asLines[i]);
+                            eArmorParserState = isKey ? ParseCheckForKeyHeader(asLines[i]) : ParseCheckForMessageHeader(asLines[i]);
                             if (eArmorParserState == nArmorParserState.Header) sHeader = asLines[i]; break;
                         case nArmorParserState.Header:
                         case nArmorParserState.KeyValue: eArmorParserState = ParseCheckForBlankLine(asLines[i]); break;
@@ -178,9 +179,17 @@
                 return nArmorParserState.Error;
         }
 
-        private nArmorParserState ParseCheckForHeader(string sLine)
+        private nArmorParserState ParseCheckForKeyHeader(string sLine)
         {
-            if (!string.IsNullOrEmpty(sLine) && ((sLine == csArmorMessageHeader) || (sLine == csArmorPrivateKeyHeader) || (sLine == csArmorPublicKeyHeader)))
+            if (!string.IsNullOrEmpty(sLine) && ((sLine == csArmorPrivateKeyHeader) || (sLine == csArmorPublicKeyHeader)))
+                return nArmorParserState.Header;
+            else
+                return nArmorParserState.Start;
+        }
+
+        private nArmorParserState ParseCheckForMessageHeader(string sLine)
+        {
+            if (!string.IsNullOrEmpty(sLine) && (sLine == csArmorMessageHeader))
                 return nArmorParserState.Header;
             else
                 return nArmorParserState.Start;

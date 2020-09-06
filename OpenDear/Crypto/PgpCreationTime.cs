@@ -14,14 +14,9 @@
             if (_eStatus == nStatus.OK)
             {
                 if ((_abRawBytes == null) || (_abRawBytes.Length != _iHeaderLength + 5))
-                {
                     _eStatus = nStatus.ParseError;
-                }
                 else
-                {
                     _Created = GetDateAt(_iHeaderLength + 1);
-                    Console.WriteLine("Datum=" + _Created.ToString("dd.MM.yyyy HH:mm:ss"));
-                }
             }
         }
 

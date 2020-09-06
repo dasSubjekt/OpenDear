@@ -12,16 +12,16 @@
             KeyExpireTime = 9, Placeholder = 10, PreferredSymmetricAlgorithms = 11, RevocationKey = 12, IssuerKeyId = 16,
             NotationData = 20, PreferredHashAlgorithms = 21, PreferredCompressionAlgorithms = 22, KeyServerPreferences = 23,
             PreferredKeyServer = 24, PrimaryUserId = 25, PolicyUri = 26, KeyFlags = 27, SignerUserId = 28, RevocationReason = 29,
-            Features = 30, SignatureTarget = 31, EmbeddedSignature = 32, Fingerprint = 33
+            Features = 30, SignatureTarget = 31, EmbeddedSignature = 32, MasterKeyFingerprint = 33
         }
 
         protected nSubpacketType _eType;
 
         #region constructors
 
-        protected PgpSignatureSubpacket() : base()
+        protected PgpSignatureSubpacket(nSubpacketType eType) : base()
         {
-            _eType = nSubpacketType.Reserved;
+            _eType = eType;
         }
 
         protected PgpSignatureSubpacket(PgpSignatureSubpacket FromPacket)
@@ -33,7 +33,7 @@
             _abRawBytes = FromPacket.abRawBytes;
         }
 
-        public PgpSignatureSubpacket(byte[] abPaketBytes, int iOffset) : this()
+        public PgpSignatureSubpacket(byte[] abPaketBytes, int iOffset) : this(nSubpacketType.Reserved)
         {
             byte bLengthByte, bPacketTag;
             int i;
@@ -74,8 +74,6 @@
                     _abRawBytes = new byte[_iHeaderLength + _iDataLength];
                     for (i = 0; i < _iHeaderLength + _iDataLength; i++)
                         _abRawBytes[i] = abPaketBytes[iOffset + i];
-
-                    // Console.WriteLine("iDataLength=" + _iDataLength.ToString());
                 }
             }
         }
@@ -83,44 +81,6 @@
         #endregion
 
         #region properties
-
-        /*
-        /// <summary>Up to 4 bytes (if present) interpreted as flag values.</summary>
-        public int iFlags
-        {
-            get
-            {
-                int i, iLength, iReturn = 0;
-
-                if ((_abRawBytes != null) && (_abRawBytes.Length > _iHeaderLength))
-                {
-                    iLength = _abRawBytes.Length < _iHeaderLength + 5 ? _abRawBytes.Length : _iHeaderLength + 4;
-
-                    // because of the flexible length we cannot use BitConverter.ToInt32(_abRawBytes, _iHeaderLength);
-                    for (i = _iHeaderLength; i < iLength; i++)
-                        iReturn |= (_abRawBytes[i] & 0xff) << (i << 3);
-                }
-                return iReturn;
-            }
-
-            // set
-            // {
-            //     byte[] abTemp = new byte[4];
-            //     int i, iLength = 0;
-            // 
-            //     for (int i = 0; i < 4; i++)
-            //     {
-            //         abTemp[i] = (byte)(value >> (i * 8));
-            //         if (abTemp[i] != 0)
-            //             iLength = i;
-            //     }
-            // 
-            //     _abRawBytes = new byte[iLength + 1];
-            //     for (i = 0; i < iLength; i++)
-            //         _abRawBytes[i] = abTemp[i];
-            // }
-        }
-        */
 
         /// <summary>Subpacket type.</summary>
         public nSubpacketType eType

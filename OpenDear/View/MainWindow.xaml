@@ -27,6 +27,12 @@
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="Padding" Value="0,3,0,8" />
         </Style>
+        <Style TargetType="PasswordBox" >
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="5,0" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Width" Value="160" />
+        </Style>
         <Style TargetType="RadioButton" >
             <Setter Property="Margin" Value="30,10,0,0" />
             <Setter Property="VerticalAlignment" Value="Top" />
@@ -48,9 +54,12 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <DockPanel Grid.Row="0" Grid.Column="0" LastChildFill="True" >
-            <Button DockPanel.Dock="Right" Content="{Binding sClose}" Command="{Binding rcClose}" Margin="11,0,0,0" Width="100" />
+            <Button DockPanel.Dock="Right" Content="{Binding sClose}" Command="{Binding rcClose}" Margin="25,0,0,0" Width="100" />
+            <Button DockPanel.Dock="Right" Content="{Binding sEmpty}" Command="{Binding rcEmptyPasswordOrPin}" Margin="10,0,0,0" Width="100" />
+            <PasswordBox DockPanel.Dock="Right" vm:AttachEncryptedPassword.Attach="True" vm:AttachEncryptedPassword.EncryptedPassword="{Binding abEncryptedPassword, Mode=OneWayToSource, UpdateSourceTrigger=PropertyChanged}" vm:AttachEncryptedPassword.PasswordLength="{Binding iPasswordLength, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" vm:AttachEncryptedPassword.PublicRsaEncryptor="{Binding RsaUiEncryptor}" MaxLength="{Binding iPasswordMaxLength}" />
+            <Label DockPanel.Dock="Right" Content="{Binding sPassphraseOrPinText}" Margin="20,0,7,0" />
             <ProgressBar DockPanel.Dock="Right" IsIndeterminate="{Binding isProgressBarIndeterminate}" Value="{Binding iProgressBarValue}" Maximum="{Binding iProgressBarMaximum}" Foreground="#A02020" Width="250" Height="24" Margin="20,0,0,0"/>
-            <Label Content="{Binding sStatus}" Margin="15,3,0,0" />
+            <Label Content="{Binding sStatus}" />
         </DockPanel>
         <TabControl Grid.Row="1" Grid.Column="0" SelectedIndex="{Binding iMenuTab}" Padding="0" TabStripPlacement="Left" Margin="0,10,0,0">
             <TabItem Padding="12,12,12,8" Header="{Binding sSetup}" >
@@ -109,11 +118,13 @@
                         <RowDefinition Height="30" />
                         <RowDefinition Height="25" />
                         <RowDefinition Height="30" />
-                        <RowDefinition Height="120" />
+                        <RowDefinition Height="122" />
                         <RowDefinition Height="25" />
                         <RowDefinition Height="30" />
-                        <RowDefinition Height="120" />
+                        <RowDefinition Height="122" />
+                        <RowDefinition Height="25" />
                         <RowDefinition Height="*" />
+                        <RowDefinition Height="50" />
                     </Grid.RowDefinitions>
 
                     <DockPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" LastChildFill="True" >
@@ -121,9 +132,10 @@
                         <Button DockPanel.Dock="Right" Content="{Binding sSelect}" Width="100" Command="{Binding rcSelectKey}" Margin="10,0,0,0" />
                         <vm:DragDropTextBox Text="{Binding sInputKeyFilePath, UpdateSourceTrigger=PropertyChanged, NotifyOnValidationError=True}" Height="30" VerticalContentAlignment="Top" Padding="5,4,5,0" />
                     </DockPanel>
-                    <Button Grid.Row="0" Grid.Column="2" Content="{Binding sRead}" Width="100" Command="{Binding rcReadKeyFile}" Margin="10,0,0,0" />
+                    <Button Grid.Row="0" Grid.Column="2" Content="{Binding sRead}" Width="100" Command="{Binding rcReadKeyFile}" Margin="9,0,0,0" />
 
                     <Label Grid.Row="2" Grid.Column="0" Content="{Binding sKeysOrTokensText}" />
+                    <Button Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Content="{Binding sReadTokens}" Command="{Binding rcReadTokens}" HorizontalAlignment="Right" VerticalAlignment="Top" Width="120" Visibility="{Binding VisibleWhenWithOpenSc}" />
                     
                     <ListView Grid.Row="3" Grid.Column="0" ItemsSource="{Binding blTokens}" SelectedItem="{Binding SelectedToken}" SelectionMode="Single" Margin="0,0,10,0" >
                         <ListView.View>
@@ -151,7 +163,16 @@
                             </GridView>
                         </ListView.View>
                     </ListView>
-                    
+
+                    <ListView Grid.Row="8" Grid.Column="0" ItemsSource="{Binding blSubkeyProperties}" SelectedItem="{Binding SelectedSubkeyProperty}" SelectionMode="Single" Margin="0,0,10,0" >
+                        <ListView.View>
+                            <GridView AllowsColumnReorder="False" >
+                                <GridViewColumn DisplayMemberBinding="{Binding sName}" Header="{Binding sPropertyText}" Width="155" />
+                                <GridViewColumn DisplayMemberBinding="{Binding sText}" Header="{Binding sValueText}" Width="485" />
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+
                 </Grid>
             </vm:DragDropTabItem>
             <vm:DragDropTabItem Padding="12,12,12,8" Header="{Binding sData}" IsDragOver="{Binding isDragOverData, Mode=TwoWay}" >
@@ -165,9 +186,9 @@
                 </TabItem.HeaderTemplate>
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="690" />
-                        <ColumnDefinition />
-                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="130" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="120" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="30" />
@@ -176,12 +197,11 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <DockPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" LastChildFill="True" >
-                        <Label DockPanel.Dock="Left" Content="{Binding sInputFileText}" />
-                        <Button DockPanel.Dock="Right" Content="{Binding sSelect}" Width="100" Command="{Binding rcSelectInputMessage}" Margin="10,0,0,0" />
-                        <vm:DragDropTextBox Text="{Binding sInputMessageFilePath, UpdateSourceTrigger=PropertyChanged, NotifyOnValidationError=True}" Height="30" VerticalContentAlignment="Top" Padding="5,4,5,0" />
-                    </DockPanel>
-                    <Button Grid.Row="0" Grid.Column="2" Content="{Binding sRead}" Width="100" Command="{Binding rcReadMessage}" Margin="10,0,0,0" />
+                    <Label Grid.Row="0" Grid.Column="0" Content="{Binding sInputFileText}" />
+                    <vm:DragDropTextBox Grid.Row="0" Grid.Column="1" Text="{Binding sInputMessageFilePath, UpdateSourceTrigger=PropertyChanged, NotifyOnValidationError=True}" Height="30" VerticalContentAlignment="Top" Padding="5,4,5,0" />
+                    <Button Grid.Row="0" Grid.Column="2" Content="{Binding sSelect}" Width="100" Command="{Binding rcSelectInputMessage}" Margin="10,0,0,0" />
+                    
+                    <Button Grid.Row="2" Grid.Column="2" Content="{Binding sRead}" Width="100" Command="{Binding rcReadMessage}" Margin="10,0,0,0" />
                 </Grid>
             </vm:DragDropTabItem>
             <TabItem Padding="12,12,12,8" Header="{Binding sProgress}" >

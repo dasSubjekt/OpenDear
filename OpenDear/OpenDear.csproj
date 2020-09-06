@@ -28,7 +28,7 @@
     <UpdateRequired>false</UpdateRequired>
     <MapFileExtensions>true</MapFileExtensions>
     <ApplicationRevision>0</ApplicationRevision>
-    <ApplicationVersion>0.9.2.%2a</ApplicationVersion>
+    <ApplicationVersion>0.9.3.%2a</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
   </PropertyGroup>
@@ -113,11 +113,12 @@
     <Compile Include="Crypto\PgpCreationTime.cs" />
     <Compile Include="Crypto\PgpFeatures.cs" />
     <Compile Include="Crypto\PgpFile.cs" />
-    <Compile Include="Crypto\PgpFingerprint.cs" />
     <Compile Include="Crypto\PgpIssuerKeyId.cs" />
     <Compile Include="Crypto\PgpKeyExpireTime.cs" />
     <Compile Include="Crypto\PgpKeyFlags.cs" />
     <Compile Include="Crypto\PgpKeyServerPreferences.cs" />
+    <Compile Include="Crypto\PgpMasterKeyFingerprint.cs" />
+    <Compile Include="Crypto\PgpMessage.cs" />
     <Compile Include="Crypto\PgpPacket.cs" />
     <Compile Include="Crypto\PgpPacketBase.cs" />
     <Compile Include="Crypto\PgpPreferredCompressionAlgorithms.cs" />
@@ -131,6 +132,7 @@
     <Compile Include="Crypto\PgpRevocationReason.cs" />
     <Compile Include="Crypto\PgpSignature.cs" />
     <Compile Include="Crypto\PgpSignatureSubpacket.cs" />
+    <Compile Include="Crypto\PgpSymmetricallyEncryptedDataPacket.cs" />
     <Compile Include="Crypto\PgpToken.cs" />
     <Compile Include="Crypto\PgpUserId.cs" />
     <Compile Include="Model\BackgroundMessage.cs" />

@@ -11,6 +11,7 @@
             None = 0x00,
             Certify = 0x01,
             Sign = 0x02,
+            CertifyOrSign = 0x03,
             EncryptCommunication = 0x04,
             EncryptStorage = 0x08,
             Encrypt = EncryptCommunication | EncryptStorage,
@@ -40,7 +41,7 @@
             }
         }
 
-        public PgpKeyFlags(nFlags eFlags) : base()
+        public PgpKeyFlags(nFlags eFlags) : base(nSubpacketType.KeyFlags)
         {
             _eFlags = eFlags;
         }

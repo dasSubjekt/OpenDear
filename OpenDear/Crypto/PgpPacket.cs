@@ -15,7 +15,6 @@
         protected const byte cbOldPacketFormatLengthTwoBytes = 0x01;
         protected const byte cbOldPacketFormatLengthFourBytes= 0x02;
         protected const byte cbOldPacketFormatLengthIndeterminate = 0x03;
-        protected const int ciKeyIdLength = 8;
 
 
         /// <remarks>RFC 4880 section 4.3. Packet tag numbers.</remarks>
@@ -23,7 +22,6 @@
                                  PrivateKey = 5, PublicKey = 6, PrivateSubkey = 7, CompressedData = 8, SymmetricallyEncryptedUnprotected = 9, Marker = 10, LiteralData = 11,
                                  Trust = 12, UserId = 13, PublicSubkey = 14, UserAttribute = 17, SymmetricallyEncryptedProtected = 18, 
                                  ModificationDetectionCode = 19, Experimental1 = 60, Experimental2 = 61, Experimental3 = 62, Experimental4 = 63 };
-
 
         protected bool _isNewPacketFormat;
         protected nPacketTag _ePacketTag;

@@ -23,23 +23,6 @@
             Initialise();
         }
 
-        public PgpPublicKey(ISlotInfo SlotInfo, byte[] abId, PgpKeyFlags.nFlags eKeyFlags, byte[] abModulus, byte[] abExponent) : this (nPacketTag.PublicKey)
-        {
-            if ((SlotInfo == null) || (abId == null) || (abModulus == null) || (abExponent == null))
-            {
-                _eStatus = nStatus.MissingArgument;
-            }
-            else
-            {
-                _SlotInfo = SlotInfo;
-                _abId = abId;
-                _ePacketTag = (eKeyFlags & PgpKeyFlags.nFlags.Sign) == 0 ? nPacketTag.PublicSubkey : nPacketTag.PublicKey;
-                InitialiseKeyParameters(abModulus, abExponent);
-
-                // Console.WriteLine("eKeyFlags=" + eKeyFlags.ToString() + ", iModulusBits=" + _iModulusBits.ToString() + ", iPublicExponentBits=" + _iPublicExponentBits.ToString());
-            }
-        }
-
         public PgpPublicKey(PgpPacket FromPacket) : base(FromPacket)
         {
             PgpPublicKeyUtility KeyUtility;
@@ -53,21 +36,18 @@
                 _Created = KeyUtility.Created;
                 _ePublicKeyAlgorithm = KeyUtility.ePublicKeyAlgorithm;
                 InitialiseKeyParameters(KeyUtility.abModulus, KeyUtility.abExponent);
-
-                Console.WriteLine("iModulusBits=" + _iModulusBits.ToString() + " | " + KeyUtility.iModulusBits.ToString());
-                Console.WriteLine("iExponentBits=" + _iExponentBits.ToString() + " | " + KeyUtility.iExponentBits.ToString());
-                Console.WriteLine("abRawBytes.Length=" + _abRawBytes.Length.ToString() + " | " + KeyUtility.abRawBytes.Length.ToString());
             }
         }
 
-        // public PgpPublicKey(nPacketTag ePacketTag, DateTime Created, nPublicKeyAlgorithm ePublicKeyAlgorithm, byte[] abModulus, byte[] abExponent) : this(ePacketTag)
-        // {
-        //     _Created = Created;
-        //     _ePublicKeyAlgorithm = ePublicKeyAlgorithm;
-        //     InitialiseKeyParameters(abModulus, abExponent);
-        //     Console.WriteLine("new PgpPublicKey() " + _ePacketTag.ToString());
-        //     EncodeRawBytes();
-        // }
+        public PgpPublicKey(ISlotInfo SlotInfo, byte[] abId, nPacketTag ePacketTag, DateTime Created, nPublicKeyAlgorithm ePublicKeyAlgorithm, byte[] abModulus, byte[] abExponent) : this(ePacketTag)
+        {
+            _SlotInfo = SlotInfo;
+            _abId = abId;
+            _Created = Created;
+            _ePublicKeyAlgorithm = ePublicKeyAlgorithm;
+            InitialiseKeyParameters(abModulus, abExponent);
+            EncodeRawBytes();
+        }
 
         #endregion
 
@@ -148,6 +128,7 @@
 
         #region methods
 
+        /// <summary></summary>
         public override void EncodeRawBytes()
         {
             PgpPublicKeyUtility KeyUtility = new PgpPublicKeyUtility(_ePacketTag, _Created, _ePublicKeyAlgorithm, _KeyParameters.Modulus, _KeyParameters.Exponent);
@@ -158,9 +139,9 @@
                 _iDataLength = KeyUtility.iDataLength;
                 _iHeaderLength = KeyUtility.iHeaderLength;
 
-                Console.WriteLine("iModulusBits=" + _iModulusBits.ToString() + " | " + KeyUtility.iModulusBits.ToString());
-                Console.WriteLine("iExponentBits=" + _iExponentBits.ToString() + " | " + KeyUtility.iExponentBits.ToString());
-                Console.WriteLine("abRawBytes.Length=" + _abRawBytes.Length.ToString() + " | " + KeyUtility.abRawBytes.Length.ToString());
+                // Console.WriteLine("iModulusBits=" + _iModulusBits.ToString() + " | " + KeyUtility.iModulusBits.ToString());
+                // Console.WriteLine("iExponentBits=" + _iExponentBits.ToString() + " | " + KeyUtility.iExponentBits.ToString());
+                // Console.WriteLine("abRawBytes.Length=" + _abRawBytes.Length.ToString() + " | " + KeyUtility.abRawBytes.Length.ToString());
             }
             else throw new FormatException("PgpPublicKey.EncodeRawBytes()");
         }

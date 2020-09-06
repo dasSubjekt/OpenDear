@@ -16,14 +16,9 @@
             if (_eStatus == nStatus.OK)
             {
                 if ((_abRawBytes == null) || (_abRawBytes.Length != _iHeaderLength + 5))
-                {
                     _eStatus = nStatus.ParseError;
-                }
                 else
-                {
                     _uSecondsValid = ((uint)_abRawBytes[_iHeaderLength + 1] << 24) | ((uint)_abRawBytes[_iHeaderLength + 2] << 16) | ((uint)_abRawBytes[_iHeaderLength + 3] << 8) | (uint)_abRawBytes[_iHeaderLength + 4];
-                    Console.WriteLine("uSecondsValid=" + _uSecondsValid.ToString());
-                }
             }
         }
 

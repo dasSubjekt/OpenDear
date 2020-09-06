@@ -30,7 +30,7 @@ namespace OpenDear.Model
             _Cryptography = Cryptography ?? new EncryptionServices();
             _quCommand = new ConcurrentQueue<BackgroundMessage>();
             _quReturn = new ConcurrentQueue<BackgroundMessage>();
-            _abAesKey = new byte[EncryptionServices.ciAesKeyBytesLength];
+            _abAesKey = new byte[EncryptionServices.ciAes256KeyBytesLength];
             _Cryptography.GetRandomBytes(_abAesKey);
             Reset();
         }

@@ -1,21 +1,17 @@
 ﻿namespace OpenDear.Crypto
 {
     using System;
-    using System.Text;
     using System.Security.Cryptography;
-    using System.IO;
-
-    // using Org.BouncyCastle.Crypto.Modes;
-    // using Org.BouncyCastle.Crypto.Engines;
-    // using Org.BouncyCastle.Crypto.Parameters;
 
 
     /// <summary>Implements RFC 4880 section 5.5.3. Secret-Key Packet Formats.</summary>
     public class PgpPrivateKey : PgpPacket
     {
-        private const int ciSha1Length = 20;
+        private const int ciCodedCountMax = 0xff;
+        private const int ciParameterBitsMin = 1000;
+        private const int ciParameterBitsMax = 0x4000;
 
-        private int _iDBits, _iPBits, _iQBits, _iInverseQBits;
+        private int _iDBits, _iPBits, _iQBits, _iInverseQBits, _iOffsetSecretKey;
         private nStringToKeyUsage _eStringToKeyUsage;
         private nSymmetricKeyAlgorithm _eSymmetricKeyAlgorithm;
         private nStringToKeySpecifier _eStringToKeySpecifier;
@@ -26,11 +22,9 @@
 
         #region constructors
 
+        /// <summary></summary>
         public PgpPrivateKey(PgpPacket FromPacket, EncryptionServices Cryptography) : base(FromPacket)
         {
-            bool isHashVerified;
-            int i, iCount, iCountDecoded, iEncryptedLength, iOffsetDecrypted, iOffsetSecretKey;
-            byte[] abEncrypted, abDecrypted, abHash, abHashData, abInitialisationVector, abReEncrypted, abSalt;
             PgpPublicKeyUtility KeyUtility;
 
             Initialise();
@@ -42,153 +36,25 @@
             if (_eStatus == nStatus.OK)
             {
                 _PublicKey = new PgpPublicKey(new PgpPacket(KeyUtility.abRawBytes, 0));   // and turn them into a public key
+                _KeyParameters.Exponent = KeyUtility.abExponent;
+                _KeyParameters.Modulus = KeyUtility.abModulus;
                 _eStatus = _PublicKey.eStatus;
 
                 if (_eStatus == nStatus.OK)
                 {
-                    iOffsetSecretKey = _PublicKey.iHeaderLength + _PublicKey.iDataLength;
-                    _eStringToKeyUsage = (nStringToKeyUsage)_abRawBytes[iOffsetSecretKey++];
+                    _iOffsetSecretKey = _PublicKey.iHeaderLength + _PublicKey.iDataLength;
+                    _eStringToKeyUsage = (nStringToKeyUsage)_abRawBytes[_iOffsetSecretKey++];
 
                     if ((_eStringToKeyUsage == nStringToKeyUsage.Sha1) || (_eStringToKeyUsage == nStringToKeyUsage.Checksum))
                     {
-                        _eSymmetricKeyAlgorithm = (nSymmetricKeyAlgorithm)_abRawBytes[iOffsetSecretKey++];
-                        _eStringToKeySpecifier = (nStringToKeySpecifier)_abRawBytes[iOffsetSecretKey++];
-                        _eHashAlgorithm = (nHashAlgorithm)_abRawBytes[iOffsetSecretKey++];
-
-                        Console.WriteLine("eStringToKeyUsage=" + _eStringToKeyUsage.ToString());
-                        Console.WriteLine("eSymmetricKeyAlgorithm=" + _eSymmetricKeyAlgorithm.ToString());
-                        Console.WriteLine("eStringToKeySpecifier=" + _eStringToKeySpecifier.ToString());
-                        Console.WriteLine("eHashAlgorithm=" + _eHashAlgorithm.ToString());
+                        _eSymmetricKeyAlgorithm = (nSymmetricKeyAlgorithm)_abRawBytes[_iOffsetSecretKey++];
+                        _eStringToKeySpecifier = (nStringToKeySpecifier)_abRawBytes[_iOffsetSecretKey++];
+                        _eHashAlgorithm = (nHashAlgorithm)_abRawBytes[_iOffsetSecretKey++];
 
                         if ((_eSymmetricKeyAlgorithm == nSymmetricKeyAlgorithm.Unencrypted) || (_eSymmetricKeyAlgorithm == nSymmetricKeyAlgorithm.Aes128))
                         {
                             if (_eStringToKeySpecifier == nStringToKeySpecifier.GnuDummy)
-                            {
-                                // abCopiedBytes = new byte[3];
-                                // iComputedPacketLength += 3;
-                                // for (i = 0; i < 3; i++)
-                                //     abCopiedBytes[i] = abKeyFile[iPacketPointer + iComputedPacketLength + i + 1];
-                                // 
-                                // iComputedPacketLength++;
-                                // iS2kMode = abKeyFile[iPacketPointer + iComputedPacketLength + 3];
                                 throw new NotImplementedException("eStringToKeySpecifier == nStringToKeySpecifier.GnuDummy");
-                            }
-
-                            if ((_eStringToKeySpecifier == nStringToKeySpecifier.Salted) || (_eStringToKeySpecifier == nStringToKeySpecifier.SaltedAndIterated))
-                            {
-                                abSalt = new byte[8];
-                                Console.Write("Salt=");
-                                for (i = 0; i < 8; i++)
-                                {
-                                    abSalt[i] = _abRawBytes[iOffsetSecretKey++];
-                                    Console.Write(abSalt[i].ToString("x2") + " ");
-                                }
-                                Console.WriteLine();
-                            }
-                            else
-                                abSalt = null;
-
-                            if (_eStringToKeySpecifier == nStringToKeySpecifier.SaltedAndIterated)
-                            {
-                                iCount = _abRawBytes[iOffsetSecretKey++];
-                                Console.WriteLine("iCount=0x" + iCount.ToString("x2"));
-                                iCountDecoded = (16 + (iCount & 15)) << ((iCount >> 4) + 6);
-                                Console.WriteLine("iCountDecoded=" + iCountDecoded.ToString());
-                            }
-                            else
-                                iCountDecoded = 0;
-
-                            if (_eSymmetricKeyAlgorithm == nSymmetricKeyAlgorithm.Aes128)
-                            {
-                                abInitialisationVector = new byte[16];
-                                Console.Write("abInitialisationVector=");
-                                for (i = 0; i < 16; i++)
-                                {
-                                    abInitialisationVector[i] = _abRawBytes[iOffsetSecretKey++];
-                                    Console.Write(abInitialisationVector[i].ToString("x2") + " ");
-                                }
-                                Console.WriteLine();
-
-                                iEncryptedLength = _abRawBytes.Length - iOffsetSecretKey;
-                                Console.WriteLine("iEncryptedLength=" + iEncryptedLength.ToString());
-
-                                /*
-                                byte[] k = StringToKey(Encoding.UTF8.GetBytes("a"), abSalt, iCountDecoded);
-                                Console.Write("Key = ");
-                                for (i = 0; i < k.Length; i++)
-                                    Console.Write(k[i].ToString("x2") + " ");
-
-                                Console.WriteLine();
-
-                                abEncrypted = new byte[iEncryptedLength];
-                                Console.Write("abEncrypted=");
-                                for (i = 0; i < iEncryptedLength; i++)
-                                {
-                                    abEncrypted[i] = _abRawBytes[iOffsetSecretKey++];
-                                    Console.Write(abEncrypted[i].ToString("x2") + " ");
-                                }
-                                Console.WriteLine();
-
-                                PgpAesWithCfb aes = new PgpAesWithCfb(k, abInitialisationVector, _Cryptography);
-                                abDecrypted = aes.Decrypt(abEncrypted);
-
-                                Console.Write("abDecrypted=");
-                                for (i = 0; i < abDecrypted.Length; i++)
-                                    Console.Write(abDecrypted[i].ToString("x2") + " ");
-                                Console.WriteLine();
-
-                                aes.Reset(k, abInitialisationVector);
-                                abReEncrypted = aes.Encrypt(abDecrypted);
-                                aes.Dispose();
-
-                                Console.Write("abReEncrypted=");
-                                for (i = 0; i < abReEncrypted.Length; i++)
-                                    Console.Write(abReEncrypted[i].ToString("x2") + " ");
-                                Console.WriteLine();
-
-                                abHashData = new byte[iEncryptedLength - 20];
-                                for (i = 0; i < abHashData.Length; i++)
-                                    abHashData[i] = abDecrypted[i];
-
-                                abHash = new byte[ciSha1Length];
-                                for (i = 0; i < ciSha1Length; i++)
-                                    abHash[i] = abDecrypted[iEncryptedLength - 20 + i];
-
-                                isHashVerified = _Cryptography.VerifyHash(abHashData, abHash, HashAlgorithmName.SHA1);
-                                Console.WriteLine("isHashVerified=" + isHashVerified.ToString());
-
-                                if (isHashVerified)
-                                {
-                                    iOffsetDecrypted = 0;
-
-                                    _iDBits = GetParameter(abDecrypted, iOffsetDecrypted, ref _KeyParameters.D);
-                                    Console.WriteLine("iDBits=" + _iDBits.ToString());
-                                    iOffsetDecrypted += _KeyParameters.D.Length + 2;
-
-                                    _iPBits = GetParameter(abDecrypted, iOffsetDecrypted, ref _KeyParameters.P);
-                                    Console.WriteLine("iPBits=" + _iPBits.ToString());
-                                    iOffsetDecrypted += _KeyParameters.P.Length + 2;
-
-                                    _iQBits = GetParameter(abDecrypted, iOffsetDecrypted, ref _KeyParameters.Q);
-                                    Console.WriteLine("iQBits=" + _iQBits.ToString());
-                                    iOffsetDecrypted += _KeyParameters.Q.Length + 2;
-
-                                    _iInverseQBits = GetParameter(abDecrypted, iOffsetDecrypted, ref _KeyParameters.InverseQ);
-                                    Console.WriteLine("iInverseQBits=" + _iInverseQBits.ToString());
-                                    iOffsetDecrypted += _KeyParameters.InverseQ.Length + 2;
-
-                                    if ((_iDBits == 0) || (_iPBits == 0) || (_iQBits == 0) || (_iInverseQBits == 0))
-                                        _eStatus = nStatus.ParseError;
-
-                                    Console.Write((iEncryptedLength - iOffsetDecrypted).ToString() + " bytes left: ");
-                                    for (i = iOffsetDecrypted; i < iEncryptedLength; i++)
-                                        Console.Write(abDecrypted[i].ToString("x2") + " ");
-                                    Console.WriteLine();                                   
-                                }
-                                else
-                                    _eStatus = nStatus.DecryptionFailed;
-                                */
-                            }
                         }
                         else
                             _eStatus = nStatus.AlgorithmNotSupported;
@@ -197,23 +63,52 @@
                         _eStatus = nStatus.AlgorithmNotSupported;
                 }
             }
-
-            // TODO test: p and q must be primes and cannot be equal, RocaVulnerability
         }
 
         #endregion
 
         #region properties
 
+        /// <summary></summary>
+        public nHashAlgorithm eHashAlgorithm
+        {
+            get { return _eHashAlgorithm; }
+        }
+
+        public RSAParameters KeyParameters
+        {
+            get { return _KeyParameters; }
+        }
+
+        /// <summary></summary>
         public PgpPublicKey PublicKey
         {
             get { return _PublicKey; }
+        }
+
+        /// <summary></summary>
+        public nStringToKeySpecifier eStringToKeySpecifier
+        {
+            get { return _eStringToKeySpecifier; }
+        }
+
+        /// <summary></summary>
+        public nStringToKeyUsage eStringToKeyUsage
+        {
+            get { return _eStringToKeyUsage; }
+        }
+
+        /// <summary></summary>
+        public nSymmetricKeyAlgorithm eSymmetricKeyAlgorithm
+        {
+            get { return _eSymmetricKeyAlgorithm; }
         }
 
         #endregion
 
         #region methods
 
+        /// <summary></summary>
         private int GetParameter(byte[] abSource, int iSourceOffset, ref byte[] abParameter)
         {
             int iBits, iBytes, iReturn = 0;
@@ -224,7 +119,7 @@
                 iSourceOffset += 2;
                 iBytes = (iBits + 7) >> 3;
 
-                if ((iBits > 1000) && (iBits <= 16384) && (iSourceOffset + iBytes <= abSource.Length))
+                if ((iBits >= ciParameterBitsMin) && (iBits <= ciParameterBitsMax) && (iSourceOffset + iBytes <= abSource.Length))
                 {
                     abParameter = CopyBytes(abSource, iSourceOffset, iBytes);
                     iReturn = iBits;
@@ -233,9 +128,10 @@
             return iReturn;
         }
 
+        /// <summary></summary>
         private void Initialise()
         {
-            _iDBits = _iPBits = _iQBits = _iInverseQBits = 0;
+            _iDBits = _iPBits = _iQBits = _iInverseQBits = _iOffsetSecretKey = 0;
             _eStringToKeyUsage = nStringToKeyUsage.Sha1;
             _eSymmetricKeyAlgorithm = nSymmetricKeyAlgorithm.Aes128;
             _eStringToKeySpecifier = nStringToKeySpecifier.SaltedAndIterated;
@@ -245,17 +141,32 @@
             _KeyParameters = new RSAParameters();
         }
 
+        /// <summary></summary>
         public void Lock()
         {
-
+            Overwrite(ref _KeyParameters.D);
+            Overwrite(ref _KeyParameters.P);
+            Overwrite(ref _KeyParameters.Q);
+            Overwrite(ref _KeyParameters.InverseQ);
         }
 
+        /// <summary></summary>
+        private void Overwrite(ref byte[] abBytes)
+        {
+            if (abBytes != null)
+            {
+                _Cryptography.GetRandomBytes(abBytes);
+                abBytes = null;
+            }
+        }
+
+        /// <summary></summary>
         private byte[] StringToKey(byte[] abPassword, byte[] abSalt, int iCountDecoded)
         {
             int i, j;
             int iLen2 = abPassword.Length + abSalt.Length;
             int iCount = iLen2 < iCountDecoded ? iCountDecoded : iLen2;
-            byte[] abReturn, abHash, abHashBuffer = new byte[iCountDecoded];
+            byte[] abHash, abHashBuffer = new byte[iCountDecoded];
 
             i = 0;
             while (iCount > iLen2)
@@ -282,17 +193,101 @@
             }
 
             abHash = _Cryptography.ComputeHash(abHashBuffer, HashAlgorithmName.SHA1);
-            abReturn = new byte[16];
-            for (i = 0; i < 16; i++)
-                abReturn[i] = abHash[i];
 
-            return abReturn;
+            return CopyBytes(abHash, 0, EncryptionServices.ciAesBlockLength);
         }
 
-        public bool Unlock(byte[] abPassword)
+        /// <summary>Unlocks this private key with the passphrase and decrypts its secret data.</summary>
+        public bool Unlock(byte[] abPassphrase)
         {
-            bool isReturn = false;
+            bool isHashVerified, isReturn = false;
+            int i, iCodedCount, iCountDecoded, iEncryptedLength, iOffset = _iOffsetSecretKey;
+            byte[] abAesKey, abEncrypted, abDecrypted, abHash, abHashData, abInitialisationVector, abSalt;
+            PgpAesWithCfb PgpAes;
 
+            if ((_eStringToKeySpecifier == nStringToKeySpecifier.Salted) || (_eStringToKeySpecifier == nStringToKeySpecifier.SaltedAndIterated))
+            {
+                abSalt = CopyBytes(_abRawBytes, iOffset, ciSaltLength);
+                iOffset += ciSaltLength;
+            }
+            else
+                abSalt = null;
+
+            if (_eStringToKeySpecifier == nStringToKeySpecifier.SaltedAndIterated)
+            {
+                iCodedCount = _abRawBytes[iOffset++];
+                iCountDecoded = (16 + (iCodedCount & 15)) << ((iCodedCount >> 4) + 6);
+            }
+            else
+                iCountDecoded = 0;
+
+            if (_eSymmetricKeyAlgorithm == nSymmetricKeyAlgorithm.Aes128)
+            {
+                abInitialisationVector = CopyBytes(_abRawBytes, iOffset, EncryptionServices.ciAesBlockLength);
+                iOffset += EncryptionServices.ciAesBlockLength;
+
+                iEncryptedLength = _abRawBytes.Length - iOffset;
+                abEncrypted = CopyBytes(_abRawBytes, iOffset, iEncryptedLength);
+
+                abAesKey = StringToKey(abPassphrase, abSalt, iCountDecoded);
+                PgpAes = new PgpAesWithCfb(abAesKey, abInitialisationVector, _Cryptography);
+                abDecrypted = PgpAes.Decrypt(abEncrypted);
+                PgpAes.Dispose();   // overwrite the AES key and other temporary data
+
+                // Console.Write("abDecrypted=");
+                // for (i = 0; i < abDecrypted.Length; i++)
+                //     Console.Write(abDecrypted[i].ToString("x2") + " ");
+                // Console.WriteLine();
+
+                abHashData = new byte[iEncryptedLength - 20];
+                for (i = 0; i < abHashData.Length; i++)
+                    abHashData[i] = abDecrypted[i];
+
+                abHash = new byte[ciSha1FingerprintLength];
+                for (i = 0; i < ciSha1FingerprintLength; i++)
+                    abHash[i] = abDecrypted[iEncryptedLength - ciSha1FingerprintLength + i];
+
+                isHashVerified = _Cryptography.VerifyHash(abHashData, abHash, HashAlgorithmName.SHA1);
+
+                if (isHashVerified)
+                {
+                    iOffset = 0;
+
+                    _iDBits = GetParameter(abDecrypted, iOffset, ref _KeyParameters.D);
+                    Console.WriteLine("iDBits=" + _iDBits.ToString());
+                    iOffset += _KeyParameters.D.Length + 2;
+
+                    _iPBits = GetParameter(abDecrypted, iOffset, ref _KeyParameters.P);
+                    Console.WriteLine("iPBits=" + _iPBits.ToString());
+                    iOffset += _KeyParameters.P.Length + 2;
+
+                    _iQBits = GetParameter(abDecrypted, iOffset, ref _KeyParameters.Q);
+                    Console.WriteLine("iQBits=" + _iQBits.ToString());
+                    iOffset += _KeyParameters.Q.Length + 2;
+
+                    _iInverseQBits = GetParameter(abDecrypted, iOffset, ref _KeyParameters.InverseQ);
+                    Console.WriteLine("iInverseQBits=" + _iInverseQBits.ToString());
+                    iOffset += _KeyParameters.InverseQ.Length + 2;
+
+                    if ((iEncryptedLength - iOffset == ciSha1FingerprintLength) && (_iDBits > 0) && (_iPBits > 0) && (_iQBits > 0) && (_iInverseQBits > 0))
+                    {
+                        // TODO test: p and q must be primes and cannot be equal, RocaVulnerability
+
+                        _eStatus = nStatus.OK;
+                        isReturn = true;
+                    }
+                    else
+                        _eStatus = nStatus.ParseError;
+                }
+                else
+                    _eStatus = nStatus.DecryptionFailed;
+
+                Overwrite(ref abDecrypted);   // overwrite the decrypted secret key bytes in working memory
+            }
+            else
+                _eStatus = nStatus.AlgorithmNotSupported;
+
+            Overwrite(ref abPassphrase);   // overwrite the plaintext password in working memory
             return isReturn;
         }
 

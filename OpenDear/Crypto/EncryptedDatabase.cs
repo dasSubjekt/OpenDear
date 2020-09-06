@@ -44,7 +44,7 @@
             {
                 byte[] abReturn = base.Read("system", ciIdSystemSaltOrSignature);
 
-                if ((abReturn == null) || (abReturn.Length != EncryptionServices.ciIvOrSaltBytesLength))
+                if ((abReturn == null) || (abReturn.Length != EncryptionServices.ciAesBlockLength))
                     return null;
                 else
                     return abReturn;
@@ -52,8 +52,8 @@
 
             set
             {
-                if ((value == null) || (value.Length != EncryptionServices.ciIvOrSaltBytesLength))
-                    throw new FormatException("EncryptedDatabase.abSalt must be " + EncryptionServices.ciIvOrSaltBytesLength.ToString() + " bytes long.");
+                if ((value == null) || (value.Length != EncryptionServices.ciAesBlockLength))
+                    throw new FormatException("EncryptedDatabase.abSalt must be " + EncryptionServices.ciAesBlockLength.ToString() + " bytes long.");
                 else if (IdExists("system", ciIdSystemSaltOrSignature.ToString()))
                     throw new InvalidOperationException("EncryptedDatabase.abSalt must not be overwritten.");
                 else

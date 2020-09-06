@@ -5,20 +5,24 @@
 
     public class PgpPacketBase
     {
-        protected const byte cbSmallestTwoByteLengthNew = 0xc0;
-
         /// <summary>1 January 1970 UTC, see RFC 4880 section 3.5. Time Fields.</summary>
         protected const long ckSeconds_1_1_1970_Utc = 62135596800L;
 
-        public enum nStatus { OK, AlgorithmNotSupported, DecryptionFailed, IndeterminateLengthNotSupported, InvalidPacketTag, MissingArgument, ParseError, SignatureNotVerified, Undefined, VersionNotSupported };
+        public enum nStatus { OK, AlgorithmNotSupported, DecryptionFailed, IndeterminateLengthNotSupported, InvalidPacketTag, MissingArgument, ParseError, Undefined, VersionNotSupported };
 
         /// <remarks>RFC 4880 section 3.7.1. String-to-Key (S2K) Specifier Types.</remarks>
         public enum nStringToKeySpecifier { Simple = 0, Salted = 1, SaltedAndIterated = 3, GnuDummy = 101 };
 
+        /// <remarks>Length in bytes, see RFC 4880 section 3.7.1. String-to-Key (S2K) Specifier Types.</remarks>
+        public const int ciSaltLength = 8;
+
+        /// <remarks>New packet format length encoding, see RFC 4880 section 4.2.2.2. Two-Octet Lengths.</remarks>
+        protected const byte cbSmallestTwoByteLengthNew = 0xc0;
+
         /// <remarks>RFC 4880 section 5.2.1. Signature type codes.</remarks>
         public enum nSignatureType
         {
-            Binary = 0, CanonicalText = 1, Standalone = 2, GenericCertification = 16, PersonalCertification = 17, CasualCertification = 18, PositiveCertification = 19,
+            Binary = 0, CanonicalText = 1, Standalone = 2, GenericCertification = 16, PersonaCertification = 17, CasualCertification = 18, PositiveCertification = 19,
             SubkeyBinding = 24, PrimaryKeyBinding = 25, Direct = 31, KeyRevocation = 32, SubkeyRevocation = 40, CertificationRevocation = 48, Timestamp = 64, ThirdPartyConfirmation = 80
         };
 
@@ -46,6 +50,11 @@
         /// <remarks>RFC 4880 section 9.4. Hash algorithm codes.</remarks>
         public enum nHashAlgorithm { MD5 = 1, Sha1 = 2, RipeMD160 = 3, DoubleSha = 4, MD2 = 5, Tiger192 = 6, Haval5pass160 = 7, Sha256 = 8, Sha384 = 9, Sha512 = 10, Sha224 = 11 };
 
+        /// <remarks>Length in bytes, see RFC 4880 section 12.2. Key IDs and Fingerprints.</remarks>
+        public const int ciSha1FingerprintLength = 20;
+
+        /// <remarks>Length in bytes, see RFC 4880 section 12.2. Key IDs and Fingerprints.</remarks>
+        public const int ciKeyIdLength = 8;
 
         protected nStatus _eStatus;
         protected int _iDataLength, _iHeaderLength;
@@ -221,7 +230,7 @@
             if ((_abRawBytes != null) && (iOffset >= 0) && (iOffset + 4 <= _abRawBytes.Length))
             {
                 uSeconds = ((uint)_abRawBytes[iOffset] << 24) | ((uint)_abRawBytes[iOffset + 1] << 16) | ((uint)_abRawBytes[iOffset + 2] << 8) | (uint)_abRawBytes[iOffset + 3];
-                Return = new DateTime((ckSeconds_1_1_1970_Utc + uSeconds) * TimeSpan.TicksPerSecond);
+                Return = new DateTime((ckSeconds_1_1_1970_Utc + uSeconds) * TimeSpan.TicksPerSecond, DateTimeKind.Utc);
             }
             return Return;
         }
@@ -229,7 +238,7 @@
         /// <summary>Write date and time to abRawBytes.</summary>
         protected void SetDateAt(int iOffset, DateTime Date)
         {
-            uint uSeconds = (uint)(Date.Ticks / TimeSpan.TicksPerSecond - ckSeconds_1_1_1970_Utc);
+            uint uSeconds = (uint)(Date.ToUniversalTime().Ticks / TimeSpan.TicksPerSecond - ckSeconds_1_1_1970_Utc);
 
             if (uSeconds < 0)
                 throw new ArgumentException("DateTime value may not be before 1 January 1970 UTC.");

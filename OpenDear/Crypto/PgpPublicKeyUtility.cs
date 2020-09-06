@@ -2,6 +2,7 @@
 {
     using System;
 
+
     /// <summary>Helper class for PgpPublicKey and PgpPrivateKey to read and write the public key.</summary>
     public class PgpPublicKeyUtility : PgpPacket
     {

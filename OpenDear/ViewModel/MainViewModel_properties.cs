@@ -15,7 +15,7 @@
 
     public partial class MainViewModel : ViewModelBase, INotifyDataErrorInfo
     {
-        private const int ciMaxPasswordLength = 10;
+        private const int ciMaxPasswordLength = 20;
         private const int ciMinPasswordLength = 8;
         private const int ciProgrssBarDefaultMaximum = 1;
         private const int ciUserInterfacePasswordEncryptionStrength = 2048;
@@ -25,13 +25,23 @@
 
         private const char ccDirectorySeparator = '\\';
         private const string csApplicationName = "OpenDear";
+        private const string csSha1 = "SHA-1";
+        private const string csSha224 = "SHA224";
+        private const string csSha256 = "SHA256";
+        private const string csSha384 = "SHA384";
+        private const string csSha512 = "SHA512";
 
         public enum nMenuTab { Setup = 0, User = 1, Keys = 2, Data = 3, Progress = 4 };
+        public enum nSubkeyProperty
+        {
+            Verified, SignatureType, PublicKeyAlgorithm, HashAlgorithm, CreatedKey, CreatedSignature, Expires, MasterKeyFingerprint, Fingerprint, Modulus, Exponent,
+            StringToKeyUsage, SymmetricKeyAlgorithm, StringToKeySpecifier, Iterations, P, Q, DP, DQ, InverseQ, D
+        };
 
         private bool _isDatabaseWithPassword, _isDragOverData, _isDragOverKeys, _isProgressBarIndeterminate;
-        private int _iErrorId, _iPassword1Length, _iPassword2Length, _iProgressBarValue, _iProgressBarMaximum, _iUserPinLength;
+        private int _iErrorId, _iPasswordLength, _iProgressBarValue, _iProgressBarMaximum, _iUserPinLength;
         private string _sBackgroundStatus, _sDatabaseDirectory, _sErrorMessage, _sInputKeyFilePath, _sInputMessageFilePath, _sNewDatabaseName;
-        private byte[] _abEncryptedPassword1, _abEncryptedPassword2, _abEncryptedUserPin;
+        private byte[] _abEncryptedPassword;
         private nMenuTab _eMenuTab;
         private BackgroundThread _BackgroundThread;
         private EncryptionServices _Cryptography;
@@ -41,21 +51,25 @@
         private BindingList<Property> _blMessages;
         private List<PgpToken> _ltTokens;
         private BindingList<PgpSignature> _blSubkeys;
+        private BindingList<Property> _blSubkeyProperties;
         private BindingList<PgpToken> _blTokens;
         private DispatcherTimer _UserInterfaceTimer;
         private PgpSignature _SelectedSubkey;
+        private Property _SelectedSubkeyProperty;
         private PgpToken _SelectedToken;
 
         #region properties
 
         public ICommand rcClose { get; }
         public ICommand rcCreateDatabase { get; }
+        public ICommand rcDecryptMessage { get; }
+        public ICommand rcEmptyPasswordOrPin { get; }
         public ICommand rcF5 { get; }
         public ICommand rcIsClosing { get; }
         public ICommand rcLogin { get; }
         public ICommand rcReadMessage { get; }
         public ICommand rcReadKeyFile { get; }
-        public ICommand rcRefreshTokens { get; }
+        public ICommand rcReadTokens { get; }
         public ICommand rcSelectInputMessage { get; }
         public ICommand rcSelectKey { get; }
         public ICommand rcUnlockKey { get; }
@@ -63,43 +77,75 @@
         public string sAllFiles { get => Translate("AllFiles"); }
         public string sBitsText { get => Translate("BitsText"); }
         public string sCancel { get => Translate("Cancel"); }
+        public string sCasualCertificationText { get => Translate("CasualCertificationText"); }
         public string sClose { get => Translate("Close"); }
         public string sCommentText { get => Translate("CommentText"); }
         public string sCreate { get => Translate("Create"); }
+        public string sCreatedKeyText { get => Translate("CreatedKeyText"); }
+        public string sCreatedSignatureText { get => Translate("CreatedSignatureText"); }
         public string sData { get => Translate("Data"); }
         public string sDatabase { get => Translate("EncryptedDatabase"); }
         public string sDatabaseNameText { get => Translate("DatabaseNameText"); }
+        public string sDateTimeFormat { get => Translate("DateTimeFormat"); }
+        public string sDecrypt { get => Translate("Decrypt"); }
         public string sDuplicateTokenError { get => Translate("DuplicateTokenError"); }
         public string sEmailText { get => Translate("EmailText"); }
+        public string sEmpty { get => Translate("Empty"); }
         public string sEnterPassword1 { get => Translate("EnterPassword1"); }
         public string sEnterPassword2 { get => Translate("EnterPassword2"); }
+        public string sExpiresText { get => Translate("ExpiresText"); }
+        public string sExponentText { get => Translate("ExponentText"); }
         public string sFileCrcError { get => Translate("FileCrcError"); }
         public string sFileError { get => Translate("FileError"); }
         public string sFileParseError { get => Translate("FileParseError"); }
         public string sFileParseErrorSub { get => Translate("FileParseErrorSub"); }
+        public string sFingerprintText { get => Translate("FingerprintText"); }
         public string sFunctionsText { get => Translate("FunctionsText"); }
+        public string sGenericCertificationText { get => Translate("GenericCertificationText"); }
+        public string sHashAlgorithmText { get => Translate("HashAlgorithmText"); }
         public string sInputFileText { get => Translate("InputFileText"); }
         public string sKeyFileText { get => Translate("KeyFileText"); }
         public string sKeyFileTooLarge { get => Translate("KeyFileTooLarge"); }
+        public string sKeyNotFoundText { get => Translate("KeyNotFoundText"); }
         public string sKeysOrTokensText { get => Translate("KeysOrTokensText"); }
         public string sKeys { get => Translate("Keys"); }
         public string sLogin { get => Translate("Login"); }
+        public string sMasterKeyFingerprintText { get => Translate("MasterKeyFingerprintText"); }
         public string sMessageText { get => Translate("MessageText"); }
+        public string sModulusText { get => Translate("ModulusText"); }
         public string sNameText { get => Translate("NameText"); }
+        public string sNeverText { get => Translate("NeverText"); }
         public string sNewDatabase { get => Translate("NewDatabase"); }
         public string sOpenScInformation { get => Translate("OpenScInformation"); }
+        public string sPassphraseOrPinText { get => Translate("PassphraseOrPinText"); }
+        public string sPendingText { get => Translate("PendingText"); }
+        public string sPersonaCertificationText { get => Translate("PersonaCertificationText"); }
         public string sPin { get => Translate("Pin"); }
+        public string sPositiveCertificationText { get => Translate("PositiveCertificationText"); }
         public string sProgress { get => Translate("Progress"); }
+        public string sPropertyText { get => Translate("PropertyText"); }
+        public string sPublicKeyAlgorithmText { get => Translate("PublicKeyAlgorithmText"); }
+        public string sPublicKeyMatched { get => Translate("PublicKeyMatched"); }
+        public string sPublicKeyNotMatched { get => Translate("PublicKeyNotMatched"); }
         public string sRead { get => Translate("Read"); }
-        public string sRefreshTokens { get => Translate("RefreshTokens"); }
+        public string sReadTokens { get => Translate("ReadTokens"); }
+        public string sRsaEncryptOrSignText { get => Translate("RsaEncryptOrSignText"); }
+        public string sRsaEncryptOnlyText { get => Translate("RsaEncryptOnlyText"); }
+        public string sRsaSignOnlyText { get => Translate("RsaSignOnlyText"); }
         public string sSelect { get => Translate("Select"); }
         public string sSelectInputMessage { get => Translate("sSelectInputMessage"); }
         public string sSelectKeyFile { get => Translate("SelectKeyFile"); }
         public string sSetup { get => Translate("Setup"); }
+        public string sSignatureTypeText { get => Translate("SignatureTypeText"); }
+        public string sSubkeyBindingText { get => Translate("SubkeyBindingText"); }
         public string sSubkeysText { get => Translate("SubkeysText"); }
         public string sTimeText { get => Translate("TimeText"); }
         public string sTypeText { get => Translate("TypeText"); }
         public string sUser { get => Translate("User"); }
+        public string sValueText { get => Translate("ValueText"); }
+        public string sVerifiedFalseText { get => Translate("VerifiedFalseText"); }
+        public string sVerifiedText { get => Translate("VerifiedText"); }
+        public string sVerifiedTrueText { get => Translate("VerifiedTrueText"); }
         public string sWindowTitle { get => Translate("WindowTitle"); }
         public string sWithPassword { get => Translate("WithPassword"); }
         public string sWithToken { get => Translate("WithToken"); }
@@ -190,6 +236,21 @@
         }
 
         /// <summary></summary>
+        public byte[] abEncryptedPassword
+        {
+            get { return _abEncryptedPassword; }
+            set
+            {
+                if (value != _abEncryptedPassword)
+                {
+                    _abEncryptedPassword = value;
+                    RaisePropertyChanged("abEncryptedPassword");
+                }
+            }
+        }
+
+        /*
+        /// <summary></summary>
         public byte[] abEncryptedPassword1
         {
             get { return _abEncryptedPassword1; }
@@ -220,32 +281,27 @@
                 }
             }
         }
-
-        /// <summary></summary>
-        public byte[] abEncryptedUserPin
-        {
-            get { return _abEncryptedUserPin; }
-            set
-            {
-                if (value != _abEncryptedUserPin)
-                {
-                    _abEncryptedUserPin = value;
-                    if (value == null)
-                        Console.WriteLine(_iUserPinLength.ToString() + " sUserPin=(null)");
-                    else
-                    {
-                        Console.WriteLine(value[0].ToString("x2") + " " + value[1].ToString("x2") + " " + value[2].ToString("x2") + " " + value[3].ToString("x2") + " " + value[4].ToString("x2") + " " + value[5].ToString("x2"));
-                        // Console.WriteLine(_iUserPinLength.ToString() + " sUserPin=(" + value.Length + ")" + TextEncoder.GetString(_PrivateRsaDecryptor.Decrypt(value, RSAEncryptionPadding.Pkcs1)));
-                    }
-                    RaisePropertyChanged("abEncryptedUserPin");
-                }
-            }
-        }
+        */
 
         /// <summary></summary>
         public bool isExecuteCreateDatabase
         {
             get { return false; }
+        }
+
+        /// <summary></summary>
+        public bool isExecuteDecryptMessage
+        {
+            get
+            {
+                return !(string.IsNullOrEmpty(_sInputMessageFilePath) || PropertyHasErrors("sInputMessageFilePath"));
+            }
+        }
+
+        /// <summary></summary>
+        public bool isExecuteEmptyPasswordOrPin
+        {
+            get { return _iPasswordLength > 0; }
         }
 
         /// <summary></summary>
@@ -376,15 +432,15 @@
             }
         }
 
-        public int iPassword1Length
+        public int iPasswordLength
         {
-            get { return _iPassword1Length; }
+            get { return _iPasswordLength; }
             set
             {
-                if (value != _iPassword1Length)
+                if (value != _iPasswordLength)
                 {
-                    _iPassword1Length = value;
-                    RaisePropertyChanged("iPassword1Length");
+                    _iPasswordLength = value;
+                    RaisePropertyChanged("iPasswordLength");
                 }
             }
         }
@@ -392,19 +448,6 @@
         public int iPasswordMaxLength
         {
             get { return ciMaxPasswordLength; }
-        }
-
-        public int iPassword2Length
-        {
-            get { return _iPassword2Length; }
-            set
-            {
-                if (value != _iPassword2Length)
-                {
-                    _iPassword2Length = value;
-                    RaisePropertyChanged("iPassword2Length");
-                }
-            }
         }
 
         public string sPinOrPassword
@@ -421,7 +464,7 @@
                 return ProgramVersion.Major.ToString() + "." + ProgramVersion.Minor.ToString() + "." + ProgramVersion.Build.ToString();
             }
         }
-           
+
         /// <summary></summary>
         public bool isProgressBarIndeterminate
         {
@@ -478,7 +521,22 @@
                 if (value != _SelectedSubkey)
                 {
                     _SelectedSubkey = value;
+                    RequeryDisplayedSubkeyProperties();
                     RaisePropertyChanged("SelectedSubkey");
+                }
+            }
+        }
+
+        /// <summary></summary>
+        public Property SelectedSubkeyProperty
+        {
+            get { return _SelectedSubkeyProperty; }
+            set
+            {
+                if (value != _SelectedSubkeyProperty)
+                {
+                    _SelectedSubkeyProperty = value;
+                    RaisePropertyChanged("SelectedSubkeyProperty");
                 }
             }
         }
@@ -502,6 +560,12 @@
         public string sStatus
         {
             get { return string.IsNullOrEmpty(sErrorMessage) ? _sBackgroundStatus : sErrorMessage; }
+        }
+
+        /// <summary></summary>
+        public BindingList<Property> blSubkeyProperties
+        {
+            get { return _blSubkeyProperties; }
         }
 
         /// <summary></summary>
@@ -533,6 +597,12 @@
         public Visibility VisibleWhenWithPassword
         {
             get { return _isDatabaseWithPassword ? Visibility.Visible : Visibility.Collapsed; }
+        }
+
+        /// <summary></summary>
+        public Visibility VisibleWhenWithOpenSc
+        {
+            get { return isWithOpenSc ? Visibility.Visible : Visibility.Collapsed; }
         }
 
         /// <summary></summary>
